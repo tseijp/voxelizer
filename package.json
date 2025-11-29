@@ -1,0 +1,26 @@
+{
+        "name": "@voxelizer/root",
+        "author": "tseijp",
+        "version": "0.1.0",
+        "license": "MIT",
+        "private": true,
+        "sideEffects": false,
+        "scripts": {
+                "dev": "cd projects/demo && npm run dev",
+                "voxelized-js": "cd packages/voxelized-js && npx tsup",
+                "voxelized-rs": "cd packages/voxelized-rs && wasm-pack build --target bundler",
+                "voxelizer-js": "cd packages/voxelizer-js && npx tsup",
+                "voxelizer-rs": "cd packages/voxelizer-rs && wasm-pack build --target bundler"
+        },
+        "devDependencies": {
+                "@changesets/cli": "*",
+                "tsup": "*"
+        },
+        "workspaces": [
+                "examples/*",
+                "packages/*"
+        ],
+        "dependencies": {
+                "rege": "^0.2.0"
+        }
+}
