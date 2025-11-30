@@ -1,23 +1,224 @@
-use wasm_bindgen::prelude::*;use js_sys::Float32Array;use crate::utils::*;
-
-fn face_dir(yaw:f32,pitch:f32)->Vec3{let cy=yaw.cos();let sy=yaw.sin();let cp=pitch.cos();let sp=pitch.sin();[-cp*cy,sp,-cp*sy]}
-fn clamp_to_face(p:f32,half:f32,sign:f32)->f32{let b=p.floor();if sign>0.0{p.min(b+1.0-half)}else{p.max(b+half)}}
+use wasm_bindgen::prelude::*;use wasm_bindgen::JsCast;use js_sys::{Array,Function};use crate::utils as U;
 
 #[wasm_bindgen]
-pub struct Camera{pos:Vec3,eye:Vec3,vel:Vec3,yaw:f32,pitch:f32,mode:i32,mvp:Mat4,size:Vec3,move_sp:f32,dash:f32,gravity:f32,turn:f32,scroll:f32}
+pub struct Camera {
+    pos: [f32; 3],
+    eye: [f32; 3],
+    mvp: [f32; 16],
+    yaw: f32,
+    pitch: f32,
+    mode: i32,
+    dir: [f32; 3],
+    vel: [f32; 3],
+    dash: f32,
+    turn: f32,
+    move_speed: f32,
+    jump: f32,
+    grav: f32,
+    ground: f32,
+    size: [f32; 3],
+    x0: f32,
+    y0: f32,
+    is_ground: bool,
+}
+
+fn face_dir(yaw: f32, pitch: f32) -> [f32; 3] {
+    let sy = yaw.sin();
+    let cy = yaw.cos();
+    let sp = pitch.sin();
+    let cp = pitch.cos();
+    [-sy, -sp * cy, -cp * cy]
+}
+fn look_target(pos: [f32; 3], face: [f32; 3]) -> [f32; 3] {
+    [pos[0] + face[0] * 10.0, pos[1] + face[1] * 10.0, pos[2] + face[2] * 10.0]
+}
+fn clamp_to_face(pos: f32, half: f32, sign: f32, base: i32) -> f32 {
+    if sign > 0.0 { pos.min((base as f32) + 1.0 - half) } else { pos.max((base as f32) + half) }
+}
+fn move_dir(face: [f32; 3], dir: [f32; 3], speed: f32, planar: bool) -> [f32; 3] {
+    let mut f = face;
+    let up = [0.0, 1.0, 0.0];
+    let mut t1 = f;
+    t1[1] = 0.0;
+    let l = t1[0] * t1[0] + t1[2] * t1[2];
+    if l < 1e-8 {
+        t1 = [0.0, 0.0, -1.0];
+    }
+    let n = (t1[0] * t1[0] + t1[1] * t1[1] + t1[2] * t1[2]).sqrt();
+    t1 = [t1[0] / n, t1[1] / n, t1[2] / n];
+    let t0 = [
+        up[1] * t1[2] - up[2] * t1[1],
+        up[2] * t1[0] - up[0] * t1[2],
+        up[0] * t1[1] - up[1] * t1[0],
+    ];
+    let nl = (t0[0] * t0[0] + t0[1] * t0[1] + t0[2] * t0[2]).sqrt();
+    let t0 = [t0[0] / nl, t0[1] / nl, t0[2] / nl];
+    let fwd = if planar { t1 } else { f };
+    let x = [t0[0] * dir[0], t0[1] * dir[0], t0[2] * dir[0]];
+    let z = [fwd[0] * dir[2], fwd[1] * dir[2], fwd[2] * dir[2]];
+    [(x[0] + z[0]) * speed, (x[1] + z[1]) * speed, (x[2] + z[2]) * speed]
+}
+
+#[wasm_bindgen(js_name = createCamera)]
+pub fn create_camera(opts: &JsValue) -> Camera {
+    let yaw = std::f32::consts::PI * 0.5;
+    let pitch = -std::f32::consts::PI * 0.45;
+    let mode = -1;
+    let x = U::get_f32(opts, "X", 0.0);
+    let y = U::get_f32(opts, "Y", 0.0);
+    let z = U::get_f32(opts, "Z", 0.0);
+    let pos = [x, y, z];
+    let face = face_dir(yaw, pitch);
+    let eye = look_target(pos, face);
+    let mvp = [0.0; 16];
+    let size = [0.8, 1.8, 0.8];
+    Camera {
+        pos,
+        eye,
+        mvp,
+        yaw,
+        pitch,
+        mode,
+        dir: [0.0, 0.0, 0.0],
+        vel: [0.0, 0.0, 0.0],
+        dash: 1.0,
+        turn: 1.0 / 250.0,
+        move_speed: 12.0,
+        jump: 12.0,
+        grav: -50.0,
+        ground: 0.0,
+        size,
+        x0: x,
+        y0: y,
+        is_ground: false,
+    }
+}
 
 #[wasm_bindgen]
-impl Camera{
-    #[wasm_bindgen(constructor)]
-    pub fn new()->Camera{Camera{pos:[0.0,0.0,0.0],eye:[-10.0,0.0,0.0],vel:[0.0,0.0,0.0],yaw:std::f32::consts::PI*0.5,pitch:-std::f32::consts::PI*0.45,mode:-1,mvp:mat4_identity(),size:[0.8,1.8,0.8],move_sp:12.0,dash:1.0,gravity:-50.0,turn:1.0/250.0,scroll:0.0}}
-    pub fn configure(&mut self,x:f32,y:f32,z:f32){self.pos=[x,y,z];self.eye=[x-10.0,y,z];}
-    pub fn mode(&mut self,m:i32){self.mode=m}
-    pub fn turn(&mut self,dx:f32,dy:f32){let r=if self.mode==1{1.0}else{0.1};self.yaw+=dx*r*self.turn;self.pitch+=(dy*r*self.turn).clamp(-(std::f32::consts::FRAC_PI_2-0.01),(std::f32::consts::FRAC_PI_2-0.01));let f=face_dir(self.yaw,self.pitch);self.eye=[self.pos[0]+f[0]*10.0,self.pos[1]+f[1]*10.0,self.pos[2]+f[2]*10.0]}
-    pub fn shift(&mut self,press:bool){if self.mode==1{self.dash=if press{3.0}else{1.0}}}
-    pub fn space(&mut self,press:bool){if self.mode==1&&press{self.vel[1]=12.0}}
-    pub fn tick(&mut self,dt:f32){if self.mode==-1{self.scroll-=dt*self.move_sp;self.pos[0]+=self.scroll;if self.pos[0]<0.0{self.pos[0]=(ROW as f32)*REGION}if self.pos[0]>(ROW as f32)*REGION{self.pos[0]=0.0}}if self.mode==1{self.vel[1]+=self.gravity*dt;self.pos[0]+=self.vel[0]*dt;self.pos[1]+=self.vel[1]*dt;self.pos[2]+=self.vel[2]*dt;if self.pos[1]<0.0{self.pos[1]=0.0;self.vel[1]=0.0}}let f=face_dir(self.yaw,self.pitch);self.eye=[self.pos[0]+f[0]*10.0,self.pos[1]+f[1]*10.0,self.pos[2]+f[2]*10.0]}
-    pub fn update(&mut self,aspect:f32){let p=mat4_perspective(28.0f32.to_radians(),aspect,0.1,4000.0);let v=mat4_look_at([self.pos[0],self.pos[1]+self.size[1]*0.5,self.pos[2]],[self.eye[0],self.eye[1]+self.size[1]*0.5,self.eye[2]],[0.0,1.0,0.0]);self.mvp=mat4_mul(&p,&v)}
-    pub fn mvp(&self)->Float32Array{Float32Array::from(self.mvp.as_slice())}
-    pub fn position(&self)->Float32Array{Float32Array::from(self.pos.as_slice())}
-    pub fn clamp_axis(&mut self,axis:u32,sign:f32){let h=if axis==1{self.size[1]*0.5}else{0.5};self.pos[axis as usize]=clamp_to_face(self.pos[axis as usize],h,sign);self.vel[axis as usize]=0.0}
+impl Camera {
+    #[wasm_bindgen(getter, js_name = pos)]
+    pub fn pos(&self) -> js_sys::Float32Array {
+        js_sys::Float32Array::from(&self.pos[..])
+    }
+    #[wasm_bindgen(getter, js_name = MVP)]
+    pub fn mvp(&self) -> js_sys::Float32Array {
+        js_sys::Float32Array::from(&self.mvp[..])
+    }
+    pub fn asdw(&mut self, axis: i32, delta: f32) {
+        if axis == 0 {
+            self.dir[1] = delta;
+            return;
+        }
+        if axis == 1 {
+            self.dir[2] = delta;
+            return;
+        }
+        if axis == 2 {
+            self.dir[0] = delta;
+            return;
+        }
+    }
+    pub fn shift(&mut self, is_press: bool) {
+        if self.mode == 0 {
+            self.asdw(0, if is_press { -1.0 } else { 0.0 });
+            return;
+        }
+        if self.mode == 1 {
+            self.dash = if is_press { 3.0 } else { 1.0 };
+        }
+    }
+    pub fn space(&mut self, is_press: bool) {
+        if self.mode == 0 {
+            self.asdw(0, if is_press { 1.0 } else { 0.0 });
+            return;
+        }
+        if self.mode == 1 && is_press {
+            self.vel[1] = self.jump;
+        }
+    }
+    pub fn mode(&mut self, x: i32) {
+        self.mode = x;
+    }
+    pub fn turn(&mut self, delta: &JsValue) {
+        let mut dx = 0.0f32; let mut dy = 0.0f32;
+        if let Some(arr) = delta.dyn_ref::<Array>() { dx = arr.get(0).as_f64().unwrap_or(0.0) as f32; dy = arr.get(1).as_f64().unwrap_or(0.0) as f32; }
+        else { dx = delta.as_f64().unwrap_or(0.0) as f32 }
+        let r = if self.mode == 1 { 1.0 } else { 0.1 };
+        self.yaw += dx * r * self.turn;
+        self.pitch += dy * r * self.turn;
+        let half = std::f32::consts::FRAC_PI_2 - 0.01;
+        self.pitch = self.pitch.min(half).max(-half);
+        let f = face_dir(self.yaw, self.pitch);
+        self.eye = look_target(self.pos, f);
+    }
+    pub fn update(&mut self, aspect: f32) {
+        let mut p = [0.0; 16];
+        let mut v = [0.0; 16];
+        U::perspective(&mut p, (28.0_f32).to_radians(), aspect, 0.1, 4000.0);
+        let off = self.size[1] * 0.5;
+        U::look_at(
+            &mut v,
+            [self.pos[0], self.pos[1] + off, self.pos[2]],
+            [self.eye[0], self.eye[1] + off, self.eye[2]],
+            [0.0, 1.0, 0.0]
+        );
+        U::mul(&mut self.mvp, &p, &v)
+    }
+    pub fn tick(&mut self, dt: f32, pick: &JsValue) {
+        if self.mode == 2 {
+            return;
+        }
+        if self.mode == -1 {
+            self.pos[0] = self.x0 - dt * self.move_speed;
+            if self.pos[0] < 0.0 {
+                self.pos[0] = (U::ROW * U::REGION) as f32;
+            }
+            let f = face_dir(self.yaw, self.pitch);
+            self.eye = look_target(self.pos, f);
+            return;
+        }
+        let speed = self.move_speed * self.dash * (if self.mode == 0 { 20.0 } else { 1.0 });
+        let f = face_dir(self.yaw, self.pitch);
+        let m = move_dir(f, self.dir, speed, self.mode == 1);
+        self.vel[0] = m[0];
+        self.vel[2] = m[2];
+        if self.mode == 0 {
+            self.pos[0] += self.vel[0] * dt;
+            self.pos[1] += self.dir[1] * dt * speed;
+            self.pos[2] += self.vel[2] * dt;
+            let f = face_dir(self.yaw, self.pitch);
+            self.eye = look_target(self.pos, f);
+            return;
+        }
+        if self.mode == 1 {
+            self.vel[1] += self.grav * dt;
+            let vmax = self.vel[0].abs().max(self.vel[1].abs().max(self.vel[2].abs()));
+            let mut steps = ((vmax * dt) / 0.25).ceil() as i32; if steps < 1 { steps = 1 }
+            let sdt = dt / (steps as f32);
+            self.is_ground = false;
+            let pf: Function = pick.clone().unchecked_into();
+            for _ in 0..steps {
+                self.pos[1] += self.vel[1] * sdt; self.collide(1, &pf);
+                self.pos[0] += self.vel[0] * sdt; self.collide(0, &pf);
+                self.pos[2] += self.vel[2] * sdt; self.collide(2, &pf);
+            }
+            if self.pos[1] < self.ground { self.pos[1] = self.y0 / 4.0; self.vel[1] = 0.0 }
+            let f = face_dir(self.yaw, self.pitch);
+            self.eye = look_target(self.pos, f);
+        }
+    }
+}
+
+impl Camera {
+    fn collide(&mut self, axis: i32, pick: &Function) {
+        let v = self.vel[axis as usize]; if v == 0.0 { return }
+        let s = v.signum(); let mut xyz = self.pos; xyz[axis as usize] += s;
+        let base = [xyz[0].floor() as i32, xyz[1].floor() as i32, xyz[2].floor() as i32];
+        let hit = pick.call3(&JsValue::NULL, &JsValue::from_f64(base[0] as f64), &JsValue::from_f64(base[1] as f64), &JsValue::from_f64(base[2] as f64)).unwrap_or(JsValue::from_f64(0.0)).as_f64().unwrap_or(0.0) as i32;
+        if hit == 0 { return }
+        if axis == 1 && s < 0.0 { self.is_ground = true }
+        let half = self.size[axis as usize] * 0.5; let b = match axis { 0 => self.pos[0].floor() as i32, 1 => self.pos[1].floor() as i32, _ => self.pos[2].floor() as i32 };
+        self.pos[axis as usize] = clamp_to_face(self.pos[axis as usize], half, s, b);
+        self.vel[axis as usize] = 0.0
+    }
 }

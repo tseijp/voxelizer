@@ -1,5 +1,43 @@
 use wasm_bindgen::prelude::*;
-pub mod utils;pub mod camera;pub mod chunk;pub mod mesh;pub mod queue;pub mod region;pub mod slot;
+
+mod utils;
+mod camera;
+mod chunk;
+mod mesh;
+mod queue;
+mod region;
+mod slot;
+
+pub use camera::Camera;
+pub use camera::create_camera as createCamera;
+pub use chunk::greedy_mesh as greedyMesh;
+pub use mesh::Mesh;
+pub use mesh::create_mesh as createMesh;
+pub use queue::Queues;
+pub use queue::create_queues as createQueues;
+pub use region::{ Regions, create_regions as createRegions };
+pub use slot::{ Slots, create_slots as createSlots };
+#[wasm_bindgen]
+pub fn range(n: u32) -> js_sys::Array {
+    utils::range(n)
+}
 
 #[wasm_bindgen]
-pub fn constants()->js_sys::Array{let a=js_sys::Array::new();a.push(&JsValue::from(utils::ROW));a.push(&JsValue::from(utils::SLOT as i32));a.push(&JsValue::from(utils::CHUNK as i32));a.push(&JsValue::from(utils::CACHE as i32));a.push(&JsValue::from(utils::REGION));a.push(&JsValue::from(utils::PREFETCH as i32));a}
+pub fn ROW() -> i32 {
+    utils::ROW
+}
+
+#[wasm_bindgen]
+pub fn REGION() -> i32 {
+    utils::REGION
+}
+
+#[wasm_bindgen]
+pub fn SLOT() -> i32 {
+    utils::SLOT
+}
+
+#[wasm_bindgen]
+pub fn SCOPE() -> js_sys::Object {
+    utils::scope_js()
+}
