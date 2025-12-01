@@ -1,4 +1,6 @@
-use wasm_bindgen::prelude::*;use wasm_bindgen::JsCast;use web_sys::{WebGl2RenderingContext,WebGlBuffer,WebGlProgram};
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
+use web_sys::{ WebGl2RenderingContext, WebGlBuffer, WebGlProgram };
 
 #[wasm_bindgen]
 pub struct Mesh {
@@ -80,12 +82,61 @@ impl Mesh {
         self.is_ready = true;
         true
     }
-    pub fn draw(&mut self, c:&JsValue, pg:&JsValue) -> u32 {let c:WebGl2RenderingContext=c.clone().unchecked_into();let pg:WebGlProgram=pg.clone().unchecked_into();if self.count==0{self.pos=[0.0,0.0,0.0];self.scl=[1.0,1.0,1.0];self.aid=[0.0];self.count=1;}self.attr(&c,&pg,&self.scl, "scl",3);self.attr(&c,&pg,&self.pos, "pos",3);self.attr(&c,&pg,&self.aid, "aid",1);self.count }
+    pub fn draw(&mut self, c: &JsValue, pg: &JsValue) -> u32 {
+        let c: WebGl2RenderingContext = c.clone().unchecked_into();
+        let pg: WebGlProgram = pg.clone().unchecked_into();
+        if self.count == 0 {
+            self.pos = vec![0.0, 0.0, 0.0];
+            self.scl = vec![1.0, 1.0, 1.0];
+            self.aid = vec![0.0];
+            self.count = 1;
+        }
+        self.attr(&c, &pg, &self.scl, "scl", 3);
+        self.attr(&c, &pg, &self.pos, "pos", 3);
+        self.attr(&c, &pg, &self.aid, "aid", 1);
+        self.count
+    }
     pub fn count(&self) -> u32 {
         self.count
     }
     pub fn isReady(&self) -> bool {
         self.is_ready
     }
-    fn attr(&mut self,c:&WebGl2RenderingContext,pg:&WebGlProgram,data:&[f32],key:&str,size:i32){let loc=c.get_attrib_location(pg,key) as u32;let array= js_sys::Float32Array::from(data);let (buf,len_slot) = match key{ "pos"=>(&mut self.buf_pos,&mut self.len_pos), "scl"=>(&mut self.buf_scl,&mut self.len_scl), _=>(&mut self.buf_aid,&mut self.len_aid)};if buf.is_none(){*buf= c.create_buffer();}c.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER,buf.as_ref());if *len_slot != array.length(){c.buffer_data_with_array_buffer_view(WebGl2RenderingContext::ARRAY_BUFFER,&array,WebGl2RenderingContext::DYNAMIC_DRAW);*len_slot=array.length();c.enable_vertex_attrib_array(loc);c.vertex_attrib_pointer_with_i32(loc,size,WebGl2RenderingContext::FLOAT,false,0,0);c.vertex_attrib_divisor(loc,1);}else{c.buffer_sub_data_with_i32_and_array_buffer_view(WebGl2RenderingContext::ARRAY_BUFFER,0,&array);} }
+    fn attr(
+        &mut self,
+        c: &WebGl2RenderingContext,
+        pg: &WebGlProgram,
+        data: &[f32],
+        key: &str,
+        size: i32
+    ) {
+        let loc = c.get_attrib_location(pg, key) as u32;
+        let array = js_sys::Float32Array::from(data);
+        let (buf, len_slot) = match key {
+            "pos" => (&mut self.buf_pos, &mut self.len_pos),
+            "scl" => (&mut self.buf_scl, &mut self.len_scl),
+            _ => (&mut self.buf_aid, &mut self.len_aid),
+        };
+        if buf.is_none() {
+            *buf = c.create_buffer();
+        }
+        c.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, buf.as_ref());
+        if *len_slot != array.length() {
+            c.buffer_data_with_array_buffer_view(
+                WebGl2RenderingContext::ARRAY_BUFFER,
+                &array,
+                WebGl2RenderingContext::DYNAMIC_DRAW
+            );
+            *len_slot = array.length();
+            c.enable_vertex_attrib_array(loc);
+            c.vertex_attrib_pointer_with_i32(loc, size, WebGl2RenderingContext::FLOAT, false, 0, 0);
+            c.vertex_attrib_divisor(loc, 1);
+        } else {
+            c.buffer_sub_data_with_i32_and_array_buffer_view(
+                WebGl2RenderingContext::ARRAY_BUFFER,
+                0,
+                &array
+            );
+        }
+    }
 }

@@ -1,6 +1,8 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use js_sys::{ Function, Promise, Reflect, Object };
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[wasm_bindgen]
 pub struct Queues {
@@ -30,7 +32,9 @@ impl Queues {
             }) as Box<dyn FnMut(JsValue)>
         );
         if let Some(pr) = started.dyn_ref::<Promise>() {
-            let _ = pr.then(&thener.into_js_value().unchecked_ref());
+            let f: &Function = thener.as_ref().unchecked_ref();
+            let _ = pr.then(f);
+            thener.forget();
         }
         let o = Object::new();
         let _ = Reflect::set(&o, &"promise".into(), &p);
@@ -52,13 +56,15 @@ impl Queues {
 }
 
 fn new_promise() -> (Promise, Function) {
-    let mut rf: Option<Function> = None;
-    let exec = Closure::wrap(
-        Box::new(move |res: JsValue, _rej: JsValue| {
-            rf = Some(res.unchecked_into::<Function>());
-        }) as Box<dyn FnMut(JsValue, JsValue)>
+    let cell = Rc::new(RefCell::new(None));
+    let cell2 = cell.clone();
+    let mut exec = Closure::wrap(
+        Box::new(move |res: Function, _rej: Function| {
+            *cell2.borrow_mut() = Some(res);
+        }) as Box<dyn FnMut(Function, Function)>
     );
-    let p = Promise::new(&exec);
+    let p = Promise::new(exec.as_mut().unchecked_ref());
+    let r = cell.borrow().clone().unwrap_or(Function::new_no_args(""));
     exec.forget();
-    (p, rf.unwrap_or(Function::new_no_args("")))
+    (p, r)
 }

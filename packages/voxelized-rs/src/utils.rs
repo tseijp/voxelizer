@@ -1,5 +1,8 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use js_sys::{ Function, Promise };
+use std::rc::Rc;
+use std::cell::RefCell;
 
 pub const SCOPE_X0: i32 = 28;
 pub const SCOPE_X1: i32 = 123;
@@ -150,7 +153,7 @@ pub fn create_context() -> web_sys::CanvasRenderingContext2d {
 
 pub fn create_image(src: &str) -> js_sys::Promise {
     let img = web_sys::HtmlImageElement::new().unwrap();
-    let (p, resolve) = new_promise();
+    let (p, resolve) = promise_pair();
     let onload = Closure::wrap(
         Box::new(move || {
             let _ = resolve.call1(&JsValue::NULL, &img.clone().into());
@@ -181,14 +184,16 @@ pub fn get_f32(o: &JsValue, k: &str, def: f32) -> f32 {
         .unwrap_or(def)
 }
 
-fn new_promise() -> (js_sys::Promise, js_sys::Function) {
-    let mut rf: Option<js_sys::Function> = None;
-    let exec = Closure::wrap(
-        Box::new(move |res: JsValue, _rej: JsValue| {
-            rf = Some(res.unchecked_into::<js_sys::Function>());
-        }) as Box<dyn FnMut(JsValue, JsValue)>
+fn promise_pair() -> (Promise, Function) {
+    let cell = Rc::new(RefCell::new(None));
+    let cell2 = cell.clone();
+    let mut exec = Closure::wrap(
+        Box::new(move |res: Function, _rej: Function| {
+            *cell2.borrow_mut() = Some(res);
+        }) as Box<dyn FnMut(Function, Function)>
     );
-    let p = js_sys::Promise::new(&exec);
+    let p = Promise::new(exec.as_mut().unchecked_ref());
+    let r = cell.borrow().clone().unwrap_or(Function::new_no_args(""));
     exec.forget();
-    (p, rf.unwrap())
+    (p, r)
 }

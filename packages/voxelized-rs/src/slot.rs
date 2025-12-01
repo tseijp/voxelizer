@@ -1,7 +1,6 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use js_sys::{ Set, Reflect };
-use crate::region::Region;
+use js_sys::{ Set, Reflect, Function };
 use crate::utils as U;
 use web_sys::{
     CanvasRenderingContext2d,
@@ -17,14 +16,14 @@ struct Slot {
     tex: Option<WebGlTexture>,
     atlas: Option<WebGlUniformLocation>,
     offset: Option<WebGlUniformLocation>,
-    region: Option<Region>,
+    region: Option<JsValue>,
     is_ready: bool,
     index: i32,
 }
 #[wasm_bindgen]
 pub struct Slots {
     owner: Vec<Slot>,
-    pending: Vec<Region>,
+    pending: Vec<JsValue>,
     cursor: usize,
     keep: Set,
 }
@@ -51,12 +50,27 @@ impl Slots {
         &mut self,
         c: &WebGl2RenderingContext,
         pg: &WebGlProgram,
-        r: Region,
+        r: JsValue,
         budget: i32
     ) -> bool {
-        let mut index = r.slot();
+        let mut index = Reflect::get(&r, &JsValue::from_str("slot"))
+            .unwrap_or(JsValue::from_f64(-1.0))
+            .as_f64()
+            .unwrap_or(-1.0) as i32;
         let region_is_same = if index >= 0 {
-            self.owner[index as usize].region.as_ref().map(|x| x.id) == Some(r.id)
+            let this_id = Reflect::get(&r, &JsValue::from_str("id"))
+                .unwrap()
+                .as_f64()
+                .unwrap_or(0.0) as i32;
+            self.owner[index as usize].region
+                .as_ref()
+                .map(
+                    |x|
+                        Reflect::get(x, &JsValue::from_str("id"))
+                            .unwrap()
+                            .as_f64()
+                            .unwrap_or(0.0) as i32
+                ) == Some(this_id)
         } else {
             false
         };
@@ -64,7 +78,11 @@ impl Slots {
             if let Some(i) = self.owner.iter().position(|s| s.region.is_none()) {
                 index = i as i32;
                 self.owner[i as usize].region = Some(r.clone());
-                r.set_slot(index);
+                let _ = Reflect::set(
+                    &r,
+                    &JsValue::from_str("slot"),
+                    &JsValue::from_f64(index as f64)
+                );
             } else {
                 return false;
             }
@@ -78,7 +96,20 @@ impl Slots {
                 return false;
             }
         }
-        if !r.chunk(&slot.ctx, index, budget) {
+        let chunk_fn: Function = Reflect::get(&r, &JsValue::from_str("chunk"))
+            .unwrap()
+            .unchecked_into();
+        let ok = chunk_fn
+            .call3(
+                &r,
+                &slot.ctx,
+                &JsValue::from_f64(index as f64),
+                &JsValue::from_f64(budget as f64)
+            )
+            .unwrap()
+            .as_bool()
+            .unwrap_or(false);
+        if !ok {
             return false;
         }
         true
@@ -88,9 +119,13 @@ impl Slots {
         let Some(r) = slot.region.as_ref() else {
             return true;
         };
-        let img = r.peek();
+        let peek: Function = Reflect::get(r, &JsValue::from_str("peek")).unwrap().unchecked_into();
+        let prefetch: Function = Reflect::get(r, &JsValue::from_str("prefetch"))
+            .unwrap()
+            .unchecked_into();
+        let img = peek.call0(r).unwrap();
         if img.is_undefined() {
-            r.prefetch(2);
+            let _ = prefetch.call1(r, &JsValue::from_f64(2.0));
             return false;
         }
         let img: web_sys::HtmlImageElement = img.unchecked_into();
@@ -145,7 +180,11 @@ impl Slots {
             c.uniform1i(Some(a), index as i32);
         }
         if let Some(of) = slot.offset.as_ref() {
-            let off = [r.x, r.y, r.z];
+            let off = [
+                Reflect::get(r, &JsValue::from_str("x")).unwrap().as_f64().unwrap_or(0.0) as f32,
+                Reflect::get(r, &JsValue::from_str("y")).unwrap().as_f64().unwrap_or(0.0) as f32,
+                Reflect::get(r, &JsValue::from_str("z")).unwrap().as_f64().unwrap_or(0.0) as f32,
+            ];
             c.uniform3fv_with_f32_array(Some(of), &off);
         }
         slot.is_ready = true;
@@ -157,8 +196,11 @@ impl Slots {
         self.pending = vec![];
         let it = js_sys::try_iter(&set).unwrap().unwrap();
         for v in it {
-            let r: Region = v.unwrap().unchecked_into();
-            r.cursor();
+            let r = v.unwrap();
+            let cursor_fn: Function = Reflect::get(&r, &JsValue::from_str("cursor"))
+                .unwrap()
+                .unchecked_into();
+            let _ = cursor_fn.call0(&r);
             self.pending.push(r);
         }
     }

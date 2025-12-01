@@ -1,4 +1,7 @@
-use wasm_bindgen::prelude::*;use wasm_bindgen::JsCast;use js_sys::{Array,Function};use crate::utils as U;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
+use js_sys::{ Array, Function };
+use crate::utils as U;
 
 #[wasm_bindgen]
 pub struct Camera {
@@ -140,9 +143,14 @@ impl Camera {
         self.mode = x;
     }
     pub fn turn(&mut self, delta: &JsValue) {
-        let mut dx = 0.0f32; let mut dy = 0.0f32;
-        if let Some(arr) = delta.dyn_ref::<Array>() { dx = arr.get(0).as_f64().unwrap_or(0.0) as f32; dy = arr.get(1).as_f64().unwrap_or(0.0) as f32; }
-        else { dx = delta.as_f64().unwrap_or(0.0) as f32 }
+        let mut dx = 0.0f32;
+        let mut dy = 0.0f32;
+        if let Some(arr) = delta.dyn_ref::<Array>() {
+            dx = arr.get(0).as_f64().unwrap_or(0.0) as f32;
+            dy = arr.get(1).as_f64().unwrap_or(0.0) as f32;
+        } else {
+            dx = delta.as_f64().unwrap_or(0.0) as f32;
+        }
         let r = if self.mode == 1 { 1.0 } else { 0.1 };
         self.yaw += dx * r * self.turn;
         self.pitch += dy * r * self.turn;
@@ -193,16 +201,25 @@ impl Camera {
         if self.mode == 1 {
             self.vel[1] += self.grav * dt;
             let vmax = self.vel[0].abs().max(self.vel[1].abs().max(self.vel[2].abs()));
-            let mut steps = ((vmax * dt) / 0.25).ceil() as i32; if steps < 1 { steps = 1 }
+            let mut steps = ((vmax * dt) / 0.25).ceil() as i32;
+            if steps < 1 {
+                steps = 1;
+            }
             let sdt = dt / (steps as f32);
             self.is_ground = false;
             let pf: Function = pick.clone().unchecked_into();
             for _ in 0..steps {
-                self.pos[1] += self.vel[1] * sdt; self.collide(1, &pf);
-                self.pos[0] += self.vel[0] * sdt; self.collide(0, &pf);
-                self.pos[2] += self.vel[2] * sdt; self.collide(2, &pf);
+                self.pos[1] += self.vel[1] * sdt;
+                self.collide(1, &pf);
+                self.pos[0] += self.vel[0] * sdt;
+                self.collide(0, &pf);
+                self.pos[2] += self.vel[2] * sdt;
+                self.collide(2, &pf);
             }
-            if self.pos[1] < self.ground { self.pos[1] = self.y0 / 4.0; self.vel[1] = 0.0 }
+            if self.pos[1] < self.ground {
+                self.pos[1] = self.y0 / 4.0;
+                self.vel[1] = 0.0;
+            }
             let f = face_dir(self.yaw, self.pitch);
             self.eye = look_target(self.pos, f);
         }
@@ -211,14 +228,37 @@ impl Camera {
 
 impl Camera {
     fn collide(&mut self, axis: i32, pick: &Function) {
-        let v = self.vel[axis as usize]; if v == 0.0 { return }
-        let s = v.signum(); let mut xyz = self.pos; xyz[axis as usize] += s;
+        let v = self.vel[axis as usize];
+        if v == 0.0 {
+            return;
+        }
+        let s = v.signum();
+        let mut xyz = self.pos;
+        xyz[axis as usize] += s;
         let base = [xyz[0].floor() as i32, xyz[1].floor() as i32, xyz[2].floor() as i32];
-        let hit = pick.call3(&JsValue::NULL, &JsValue::from_f64(base[0] as f64), &JsValue::from_f64(base[1] as f64), &JsValue::from_f64(base[2] as f64)).unwrap_or(JsValue::from_f64(0.0)).as_f64().unwrap_or(0.0) as i32;
-        if hit == 0 { return }
-        if axis == 1 && s < 0.0 { self.is_ground = true }
-        let half = self.size[axis as usize] * 0.5; let b = match axis { 0 => self.pos[0].floor() as i32, 1 => self.pos[1].floor() as i32, _ => self.pos[2].floor() as i32 };
+        let hit = pick
+            .call3(
+                &JsValue::NULL,
+                &JsValue::from_f64(base[0] as f64),
+                &JsValue::from_f64(base[1] as f64),
+                &JsValue::from_f64(base[2] as f64)
+            )
+            .unwrap_or(JsValue::from_f64(0.0))
+            .as_f64()
+            .unwrap_or(0.0) as i32;
+        if hit == 0 {
+            return;
+        }
+        if axis == 1 && s < 0.0 {
+            self.is_ground = true;
+        }
+        let half = self.size[axis as usize] * 0.5;
+        let b = match axis {
+            0 => self.pos[0].floor() as i32,
+            1 => self.pos[1].floor() as i32,
+            _ => self.pos[2].floor() as i32,
+        };
         self.pos[axis as usize] = clamp_to_face(self.pos[axis as usize], half, s, b);
-        self.vel[axis as usize] = 0.0
+        self.vel[axis as usize] = 0.0;
     }
 }

@@ -1,13 +1,11 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use js_sys::{ Promise, Reflect, Function, Object, Set, Float32Array, Array };
+use js_sys::{ Promise, Reflect, Function, Object, Set, Float32Array };
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::utils as U;
-use crate::mesh::Mesh;
-use crate::camera::Camera;
-use crate::queue::Queues;
+use wasm_bindgen::JsValue;
 use web_sys::{
     CanvasRenderingContext2d,
     HtmlImageElement,
@@ -43,7 +41,7 @@ pub struct Region {
     st: Rc<RefCell<RegionState>>,
 }
 
-fn make_region(mesh: &Mesh, queues: &Queues, i: i32, j: i32) -> Region {
+fn make_region(mesh: &JsValue, queues: &JsValue, i: i32, j: i32) -> Region {
     let (x, y, z) = U::off_of(i, j);
     let id = U::region_id(i, j);
     let mut q = Vec::new();
@@ -61,8 +59,8 @@ fn make_region(mesh: &Mesh, queues: &Queues, i: i32, j: i32) -> Region {
         x,
         y,
         z,
-        mesh: mesh.into(),
-        queues: queues.into(),
+        mesh: mesh.clone(),
+        queues: queues.clone(),
         st: Rc::new(
             RefCell::new(RegionState {
                 img: None,
@@ -194,7 +192,9 @@ impl Region {
                         s.pending = false;
                     }) as Box<dyn FnMut(JsValue)>
                 );
-                let _ = p.then(&then.into_js_value().unchecked_ref());
+                let f: &Function = then.as_ref().unchecked_ref();
+                let _ = p.then(f);
+                then.forget();
                 p
             }) as Box<dyn FnMut() -> Promise>
         );
@@ -236,39 +236,31 @@ pub struct Regions {
     mesh: JsValue,
     cam: JsValue,
     queues: JsValue,
-    regions: std::cell::RefCell<HashMap<i32, Region>>,
+    regions: std::cell::RefCell<HashMap<i32, JsValue>>,
 }
 
 #[wasm_bindgen(js_name = createRegions)]
-pub fn create_regions(mesh: &Mesh, cam: &Camera, q: &Queues) -> Regions {
-    Regions {
-        mesh: mesh.into(),
-        cam: cam.into(),
-        queues: q.into(),
-        regions: std::cell::RefCell::new(HashMap::new()),
-    }
+pub fn create_regions(mesh: JsValue, cam: JsValue, q: JsValue) -> Regions {
+    Regions { mesh, cam, queues: q, regions: std::cell::RefCell::new(HashMap::new()) }
 }
 
 #[wasm_bindgen]
 impl Regions {
     pub fn vis(&self) -> Set {
         let mut list: Vec<(i32, i32, f32, i32)> = Vec::new();
-        let cam: &crate::camera::Camera = self.cam.unchecked_ref();
-        let pos = cam.pos();
+        let pos_val = Reflect::get(&self.cam, &JsValue::from_str("pos")).unwrap();
+        let pos = pos_val.unchecked_into::<Float32Array>();
         let p = [pos.get_index(0), pos.get_index(1), pos.get_index(2)];
         let (si, sj) = U::pos_of(&[p[0], p[1], p[2]]);
         {
             let mut m = self.regions.borrow_mut();
-            let ensure = |m: &mut std::collections::HashMap<i32, Region>, rx: i32, ry: i32| {
+            let mesh = self.mesh.clone();
+            let queues = self.queues.clone();
+            let ensure = |m: &mut std::collections::HashMap<i32, JsValue>, rx: i32, ry: i32| {
                 let id = U::region_id(rx, ry);
                 if !m.contains_key(&id) {
-                    let r = make_region(
-                        self.mesh.unchecked_ref(),
-                        self.queues.unchecked_ref(),
-                        rx,
-                        ry
-                    );
-                    m.insert(id, r);
+                    let r = make_region(&mesh, &queues, rx, ry);
+                    m.insert(id, JsValue::from(r));
                 }
                 id
             };
@@ -288,9 +280,21 @@ impl Regions {
                         continue;
                     }
                     let id = ensure(&mut m, i, j);
-                    let r = &m[&id];
-                    let (x, y, z) = (r.x, r.y, r.z);
-                    let vp = cam.mvp();
+                    let r = m.get(&id).unwrap();
+                    let x = Reflect::get(r, &JsValue::from_str("x"))
+                        .unwrap()
+                        .as_f64()
+                        .unwrap_or(0.0) as f32;
+                    let y = Reflect::get(r, &JsValue::from_str("y"))
+                        .unwrap()
+                        .as_f64()
+                        .unwrap_or(0.0) as f32;
+                    let z = Reflect::get(r, &JsValue::from_str("z"))
+                        .unwrap()
+                        .as_f64()
+                        .unwrap_or(0.0) as f32;
+                    let mvp_val = Reflect::get(&self.cam, &JsValue::from_str("MVP")).unwrap();
+                    let vp = mvp_val.unchecked_into::<Float32Array>();
                     if !U::culling(&vp, x, y, z) && d > (U::SLOT as f32) {
                         continue;
                     }
@@ -305,8 +309,8 @@ impl Regions {
         let mut set = Set::new(&JsValue::undefined());
         let m = self.regions.borrow();
         for (_, _, _, id) in list.into_iter().take(U::SLOT as usize) {
-            let r = &m[&id];
-            let _ = set.add(&JsValue::from(r));
+            let r = m.get(&id).unwrap();
+            let _ = set.add(r);
         }
         set
     }
@@ -325,23 +329,34 @@ impl Regions {
             return 0;
         }
         let r = r.unwrap();
-        let lx = wx - r.x;
-        let ly = 0.0 - r.y;
-        let lz = wz - r.z;
+        let x = Reflect::get(r, &JsValue::from_str("x")).unwrap().as_f64().unwrap_or(0.0) as f32;
+        let y = Reflect::get(r, &JsValue::from_str("y")).unwrap().as_f64().unwrap_or(0.0) as f32;
+        let z = Reflect::get(r, &JsValue::from_str("z")).unwrap().as_f64().unwrap_or(0.0) as f32;
+        let lx = wx - x;
+        let ly = 0.0 - y;
+        let lz = wz - z;
         let ci = (lx / (U::CHUNK as f32)).floor() as i32;
         let cj = (ly / (U::CHUNK as f32)).floor() as i32;
         let ck = (lz / (U::CHUNK as f32)).floor() as i32;
         if ci < 0 || ci > 15 || cj < 0 || cj > 15 || ck < 0 || ck > 15 {
             return 0;
         }
-        let vox_js = r.get(ci, cj, ck);
+        let get_fn: Function = Reflect::get(r, &JsValue::from_str("get")).unwrap().unchecked_into();
+        let vox_js = get_fn
+            .call3(
+                r,
+                &JsValue::from_f64(ci as f64),
+                &JsValue::from_f64(cj as f64),
+                &JsValue::from_f64(ck as f64)
+            )
+            .unwrap();
         if vox_js.is_undefined() {
             return 0;
         }
         let vx = ((lx - (ci as f32) * (U::CHUNK as f32)).floor() as i32).clamp(0, 15);
         let vy = ((ly - (cj as f32) * (U::CHUNK as f32)).floor() as i32).clamp(0, 15);
         let vz = ((lz - (ck as f32) * (U::CHUNK as f32)).floor() as i32).clamp(0, 15);
-        let idx = (vx + (vy + vz * U::CHUNK) * U::CHUNK) as usize;
+        let idx = (vx + (vy + vz * U::CHUNK) * U::CHUNK) as u32;
         let arr = js_sys::Uint8Array::from(vox_js);
         arr.get_index(idx) as i32
     }
