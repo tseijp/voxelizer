@@ -138,10 +138,14 @@ pub fn create_context() -> web_sys::CanvasRenderingContext2d {
         .unwrap()
         .dyn_into()
         .unwrap();
+    let options = js_sys::Object::new();
+    js_sys::Reflect
+        ::set(&options, &JsValue::from_str("willReadFrequently"), &JsValue::from_bool(true))
+        .unwrap();
     canvas.set_width(4096);
     canvas.set_height(4096);
     canvas
-        .get_context("2d")
+        .get_context_with_context_options("2d", &options)
         .unwrap()
         .unwrap()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()
@@ -184,8 +188,10 @@ pub fn get_f32(o: &JsValue, k: &str, def: f32) -> f32 {
 
 fn promise_pair() -> (Promise, Function) {
     let mut resolve_fn: Option<Function> = None;
-    let p = Promise::new(&mut |res: Function, _rej: Function| {
-        resolve_fn = Some(res);
-    });
+    let p = Promise::new(
+        &mut (|res: Function, _rej: Function| {
+            resolve_fn = Some(res);
+        })
+    );
     (p, resolve_fn.unwrap())
 }

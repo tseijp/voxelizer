@@ -307,7 +307,7 @@ impl Regions {
         }
         set
     }
-    pub fn pick(&self, wx: f32, _wy: f32, wz: f32) -> i32 {
+    pub fn pick(&self, wx: f32, wy: f32, wz: f32) -> i32 {
         let (rxi, ryj) = (
             U::SCOPE_X0 + ((wx / (U::REGION as f32)).floor() as i32),
             U::SCOPE_Y1 - ((wz / (U::REGION as f32)).floor() as i32),
@@ -326,7 +326,7 @@ impl Regions {
         let y = Reflect::get(r, &JsValue::from_str("y")).unwrap().as_f64().unwrap_or(0.0) as f32;
         let z = Reflect::get(r, &JsValue::from_str("z")).unwrap().as_f64().unwrap_or(0.0) as f32;
         let lx = wx - x;
-        let ly = 0.0 - y;
+        let ly = wy - y;
         let lz = wz - z;
         let ci = (lx / (U::CHUNK as f32)).floor() as i32;
         let cj = (ly / (U::CHUNK as f32)).floor() as i32;

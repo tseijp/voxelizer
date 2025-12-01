@@ -7,26 +7,15 @@ const SCOPE = { x0: 28, x1: 123, y0: 75, y1: 79 }
 const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 const SLOT = 16
 const REGION = 256
-
 const range = (n = 0) => [...Array(n).keys()]
-
-const createMode = () => {
-        let mode = -1 // 0 is creative
-        let _mode = 1 // last non-pause mode
-        const tab = () => {
-                if (mode === 0) return (mode = _mode = 1)
-                if (mode === 1) return (mode = _mode = 0)
-        }
-        const esc = () => {
-                if (mode === -1) return (mode = _mode = 1)
-                if (mode === 2) return (mode = _mode)
-                ;[_mode, mode] = [mode, _mode]
-                return mode
-        }
-        return { tab, esc, current: () => mode }
+const importer = async (isDebug = false) => {
+        // if (isDebug) return await import ("voxelized-js/src")
+        const wasm = await import('voxelized-rs')
+        // @ts-ignore for nodejs
+        // if (typeof window !== 'undefined') await wasm.default()
+        return wasm
 }
-
-export const createNode = () => {
+const createNode = () => {
         const iMVP = uniform<'mat4'>(mat4(), 'iMVP')
         const iAtlas = range(SLOT).map((i) => uniform(texture2D(), `iAtlas${i}`))
         const iOffset = range(SLOT).map((i) => uniform(vec3(0, 0, 0), `iOffset${i}`))
@@ -82,8 +71,24 @@ export const createNode = () => {
         return { vert, frag, iMVP }
 }
 
+const createMode = () => {
+        let mode = -1 // 0 is creative
+        let _mode = 1 // last non-pause mode
+        const tab = () => {
+                if (mode === 0) return (mode = _mode = 1)
+                if (mode === 1) return (mode = _mode = 0)
+                return mode
+        }
+        const esc = () => {
+                if (mode === -1) return (mode = _mode = 1)
+                if (mode === 2) return (mode = _mode)
+                ;[_mode, mode] = [mode, _mode]
+                return mode
+        }
+        return { tab, esc, current: () => mode }
+}
 const createViewer = async () => {
-        const { createCamera, createMesh, createQueues, createRegions, createSlots } = await import('voxelized-rs')
+        const { createCamera, createMesh, createQueues, createRegions, createSlots } = await importer()
         let isReady = false
         let isLoading = false
         let ts = performance.now()
@@ -95,7 +100,7 @@ const createViewer = async () => {
         const mode = createMode()
         const node = createNode()
         const slots = createSlots(SLOT)
-        const queues = createQueues()
+        const queues = createQueues(4, 1)
         const regions = createRegions(mesh, cam, queues)
         try {
                 cam.update(1280 / 800) // Ensure MVP is valid for culling before first render.

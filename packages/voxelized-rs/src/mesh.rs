@@ -74,9 +74,9 @@ impl Mesh {
         if self._count == 0 {
             return false;
         }
-        self.pos.swap_with_slice(&mut self._pos);
-        self.scl.swap_with_slice(&mut self._scl);
-        self.aid.swap_with_slice(&mut self._aid);
+        std::mem::swap(&mut self.pos, &mut self._pos);
+        std::mem::swap(&mut self.scl, &mut self._scl);
+        std::mem::swap(&mut self.aid, &mut self._aid);
         self.count = self._count;
         self.reset();
         self.is_ready = true;
