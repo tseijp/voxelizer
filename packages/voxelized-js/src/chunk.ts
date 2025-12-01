@@ -1,6 +1,7 @@
-import { CHUNK, chunkId, solid } from './utils'
+import { CHUNK, chunkId } from './utils'
+import { greedyMesh as greedyMesh2 } from 'voxelized-rs'
 
-const greedyMesh = (src: Uint8Array, size = 1, pos: number[] = [], scl: number[] = [], count = 0) => {
+const _greedyMesh = (src: Uint8Array, size = 1, pos: number[] = [], scl: number[] = [], count = 0) => {
         const data = new Uint8Array(src)
         const index = (x = 0, y = 0, z = 0) => x + (y + z * size) * size
         const isHitWidth = (x = 0, y = 0, z = 0) => {
@@ -48,7 +49,7 @@ const greedyMesh = (src: Uint8Array, size = 1, pos: number[] = [], scl: number[]
                 scl[count * 3 + 2] = d
                 count++
         }
-        solid(tick, size)
+        for (let k = 0; k < size; k++) for (let j = 0; j < size; j++) for (let i = 0; i < size; i++) tick(i, j, k)
         return { pos, scl, count }
 }
 
@@ -69,13 +70,18 @@ export const createChunk = (i = 0, j = 0, k = 0) => {
                 const tile = ctx.getImageData(ox, oy, 64, 64).data
                 vox = new Uint8Array(CHUNK * CHUNK * CHUNK)
                 let p = 0
-                solid((x, y, z) => {
+                const tick = (x = 0, y = 0, z = 0) => {
                         const px = (z & 3) * 16 + x
                         const py = (z >> 2) * 16 + y
                         const si = Math.floor((py * 64 + px) * 4)
                         vox[p++] = tile[si + 3] > 0.5 ? 1 : 0
-                })
-                count = greedyMesh(vox, CHUNK, pos, scl).count
+                }
+                for (let k = 0; k < CHUNK; k++) for (let j = 0; j < CHUNK; j++) for (let i = 0; i < CHUNK; i++) tick(i, j, k)
+                const res = greedyMesh2(vox, CHUNK) as any
+                pos.length = scl.length = 0
+                pos.push(...res.pos)
+                scl.push(...res.scl)
+                count = res.count
                 for (let i = 0; i < count; i++) {
                         const j = i * 3
                         pos[j] += x

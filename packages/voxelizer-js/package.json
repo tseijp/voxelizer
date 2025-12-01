@@ -3,7 +3,7 @@
         "version": "0.1.0",
         "author": "tseijp",
         "license": "MIT",
-        "private": false,
+        "private": true,
         "sideEffect": false,
         "type": "module",
         "publishConfig": {

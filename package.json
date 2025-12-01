@@ -10,7 +10,9 @@
                 "voxelized-js": "cd packages/voxelized-js && npx tsup",
                 "voxelized-rs": "cd packages/voxelized-rs && wasm-pack build --target bundler",
                 "voxelizer-js": "cd packages/voxelizer-js && npx tsup",
-                "voxelizer-rs": "cd packages/voxelizer-rs && wasm-pack build --target bundler"
+                "voxelizer-rs": "cd packages/voxelizer-rs && wasm-pack build --target bundler",
+                "all": "npm run voxelized-js && npm run voxelized-rs && npm run voxelizer-js && npm run voxelizer-rs",
+                "pub": "npm run all && npx changeset publish"
         },
         "devDependencies": {
                 "@changesets/cli": "*",

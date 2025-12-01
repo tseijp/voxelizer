@@ -47,7 +47,7 @@ fn clamp_to_face(pos: f32, half: f32, sign: f32, base: i32) -> f32 {
     if sign > 0.0 { pos.min((base as f32) + 1.0 - half) } else { pos.max((base as f32) + half) }
 }
 fn move_dir(face: [f32; 3], dir: [f32; 3], speed: f32, planar: bool) -> [f32; 3] {
-    let mut f = face;
+    let f = face;
     let up = [0.0, 1.0, 0.0];
     let mut t1 = f;
     t1[1] = 0.0;
@@ -150,14 +150,14 @@ impl Camera {
         self.mode = x;
     }
     pub fn turn(&mut self, delta: &JsValue) {
-        let mut dx = 0.0f32;
-        let mut dy = 0.0f32;
-        if let Some(arr) = delta.dyn_ref::<Array>() {
-            dx = arr.get(0).as_f64().unwrap_or(0.0) as f32;
-            dy = arr.get(1).as_f64().unwrap_or(0.0) as f32;
+        let (dx, dy) = if let Some(arr) = delta.dyn_ref::<Array>() {
+            (
+                arr.get(0).as_f64().unwrap_or(0.0) as f32,
+                arr.get(1).as_f64().unwrap_or(0.0) as f32,
+            )
         } else {
-            dx = delta.as_f64().unwrap_or(0.0) as f32;
-        }
+            (delta.as_f64().unwrap_or(0.0) as f32, 0.0)
+        };
         let r = if self.mode == 1 { 1.0 } else { 0.1 };
         self.yaw += dx * r * self.turn;
         self.pitch += dy * r * self.turn;
@@ -242,13 +242,13 @@ impl Camera {
         let s = v.signum();
         let mut xyz = self.pos;
         xyz[axis as usize] += s;
-        let base = [xyz[0].floor() as i32, xyz[1].floor() as i32, xyz[2].floor() as i32];
+        let floor_xyz = [xyz[0].floor(), xyz[1].floor(), xyz[2].floor()];
         let hit = pick
             .call3(
                 &JsValue::NULL,
-                &JsValue::from_f64(base[0] as f64),
-                &JsValue::from_f64(base[1] as f64),
-                &JsValue::from_f64(base[2] as f64)
+                &JsValue::from_f64(floor_xyz[0] as f64),
+                &JsValue::from_f64(floor_xyz[1] as f64),
+                &JsValue::from_f64(floor_xyz[2] as f64)
             )
             .unwrap_or(JsValue::from_f64(0.0))
             .as_f64()
@@ -260,12 +260,8 @@ impl Camera {
             self.is_ground = true;
         }
         let half = self.size[axis as usize] * 0.5;
-        let b = match axis {
-            0 => self.pos[0].floor() as i32,
-            1 => self.pos[1].floor() as i32,
-            _ => self.pos[2].floor() as i32,
-        };
-        self.pos[axis as usize] = clamp_to_face(self.pos[axis as usize], half, s, b);
+        let base = self.pos[axis as usize].floor() as i32;
+        self.pos[axis as usize] = clamp_to_face(self.pos[axis as usize], half, s, base);
         self.vel[axis as usize] = 0.0;
     }
 }

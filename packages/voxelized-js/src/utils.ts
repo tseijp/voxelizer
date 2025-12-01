@@ -13,9 +13,6 @@ export const range = (n = 0) => [...Array(n).keys()]
 export const chunkId = (i = 0, j = 0, k = 0) => i + j * CHUNK + k * CHUNK * CHUNK
 export const regionId = (i = 0, j = 0) => i + ROW * j
 export const culling = (VP = M.create(), rx = 0, ry = 0, rz = 0) => visSphere(VP as number[], rx + 128, ry + 128, rz + 128, Math.sqrt(256 * 256 * 3) * 0.5)
-export const solid = (f: (i: number, j: number, k: number) => void, n = CHUNK) => {
-        for (let k = 0; k < n; k++) for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) f(i, j, k)
-}
 
 export const timer = (t = 6) => {
         const start = performance.now()

@@ -82,10 +82,18 @@ impl Slots {
                     slot.region = Some(r.clone());
                     slot.is_ready = false;
                 }
-                let _ = Reflect::set(&r, &JsValue::from_str("slot"), &JsValue::from_f64(index as f64));
-            } else { return false; }
+                let _ = Reflect::set(
+                    &r,
+                    &JsValue::from_str("slot"),
+                    &JsValue::from_f64(index as f64)
+                );
+            } else {
+                return false;
+            }
         } else {
-            if !region_is_same { return false; }
+            if !region_is_same {
+                return false;
+            }
         }
         let need_ready = {
             let s = &self.owner[index as usize];
@@ -187,12 +195,13 @@ impl Slots {
         true
     }
     pub fn begin(&mut self, set: &Set) {
-        self.keep = set.clone();
         let mut i = 0usize;
         while i < self.owner.len() {
             let (keep_this, region_js) = if let Some(r) = self.owner[i].region.as_ref() {
-                (self.keep.has(r), Some(r.clone()))
-            } else { (false, None) };
+                (set.has(r), Some(r.clone()))
+            } else {
+                (false, None)
+            };
             if !keep_this {
                 if let Some(r) = region_js {
                     let _ = Reflect::set(&r, &JsValue::from_str("slot"), &JsValue::from_f64(-1.0));
@@ -202,6 +211,7 @@ impl Slots {
             }
             i += 1;
         }
+        self.keep = set.clone();
         self.cursor = 0;
         self.pending = vec![];
         let it = js_sys::try_iter(&set).unwrap().unwrap();

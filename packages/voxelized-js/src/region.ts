@@ -1,4 +1,4 @@
-import { ATLAS_URL, CACHE, CHUNK, chunkId, createImage, culling, offOf, posOf, PREFETCH, REGION, regionId, SCOPE, scoped, SLOT, solid, timer } from './utils'
+import { ATLAS_URL, CACHE, CHUNK, chunkId, createImage, culling, offOf, posOf, PREFETCH, REGION, regionId, SCOPE, scoped, SLOT, timer } from './utils'
 import { createChunk } from './chunk'
 import type { Camera } from './camera'
 import type { Chunk } from './chunk'
@@ -18,11 +18,13 @@ const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Queues) =>
                 if (isDisposed || (chunks && queue)) return
                 chunks = new Map<number, Chunk>()
                 queue = []
-                solid((ci, cj, ck) => {
+                const tick = (ci = 0, cj = 0, ck = 0) => {
                         const c = createChunk(ci, cj, ck)
                         chunks!.set(c.id, c)
                         queue!.push(c)
-                })
+                }
+
+                for (let k = 0; k < CHUNK; k++) for (let j = 0; j < CHUNK; j++) for (let i = 0; i < CHUNK; i++) tick(i, j, k)
         }
         const prefetch = (priority = 0) => {
                 if (isDisposed || img) return Promise.resolve(img)

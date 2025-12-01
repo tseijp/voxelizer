@@ -54,8 +54,10 @@ impl Queues {
 
 fn new_promise() -> (Promise, Function) {
     let mut resolve_fn: Option<Function> = None;
-    let p = Promise::new(&mut |res: Function, _rej: Function| {
-        resolve_fn = Some(res);
-    });
+    let p = Promise::new(
+        &mut (|res: Function, _rej: Function| {
+            resolve_fn = Some(res);
+        })
+    );
     (p, resolve_fn.unwrap())
 }

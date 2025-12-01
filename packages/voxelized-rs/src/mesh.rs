@@ -45,23 +45,33 @@ pub fn create_mesh() -> Mesh {
 #[wasm_bindgen]
 impl Mesh {
     pub fn merge(&mut self, chunk: &JsValue, index: u32) {
-        let p = js_sys::Reflect::get(chunk, &"pos".into()).ok();
-        let s = js_sys::Reflect::get(chunk, &"scl".into()).ok();
-        let c = js_sys::Reflect::get(chunk, &"count".into()).ok();
-        if let (Some(p), Some(s), Some(c)) = (p, s, c) {
-            let pa = js_sys::Float32Array::new(&p);
-            let sa = js_sys::Float32Array::new(&s);
-            let cnt = c.as_f64().unwrap_or(0.0) as u32;
-            let mut tmp = vec![0.0f32;pa.length() as usize];
-            pa.copy_to(&mut tmp[..]);
-            self._pos.extend_from_slice(&tmp);
-            let mut tmp2 = vec![0.0f32;sa.length() as usize];
-            sa.copy_to(&mut tmp2[..]);
-            self._scl.extend_from_slice(&tmp2);
-            for _ in 0..cnt {
-                self._aid.push(index as f32);
+        if let Ok(count_val) = js_sys::Reflect::get(chunk, &"count".into()) {
+            if let Some(count_fn) = count_val.dyn_ref::<js_sys::Function>() {
+                if let Ok(cnt_result) = count_fn.call0(chunk) {
+                    let cnt = cnt_result.as_f64().unwrap_or(0.0) as u32;
+                    if cnt > 0 {
+                        if
+                            let (Ok(pos_prop), Ok(scl_prop)) = (
+                                js_sys::Reflect::get(chunk, &"pos".into()),
+                                js_sys::Reflect::get(chunk, &"scl".into()),
+                            )
+                        {
+                            let pa = js_sys::Float32Array::new(&pos_prop);
+                            let sa = js_sys::Float32Array::new(&scl_prop);
+                            let mut tmp = vec![0.0f32; pa.length() as usize];
+                            pa.copy_to(&mut tmp[..]);
+                            self._pos.extend_from_slice(&tmp);
+                            let mut tmp2 = vec![0.0f32; sa.length() as usize];
+                            sa.copy_to(&mut tmp2[..]);
+                            self._scl.extend_from_slice(&tmp2);
+                            for _ in 0..cnt {
+                                self._aid.push(index as f32);
+                            }
+                            self._count += cnt;
+                        }
+                    }
+                }
             }
-            self._count += cnt;
         }
     }
     pub fn reset(&mut self) {
@@ -86,9 +96,13 @@ impl Mesh {
         let c: WebGl2RenderingContext = c.clone().unchecked_into();
         let pg: WebGlProgram = pg.clone().unchecked_into();
         if self.count == 0 {
-            self.pos = vec![0.0, 0.0, 0.0];
-            self.scl = vec![1.0, 1.0, 1.0];
-            self.aid = vec![0.0];
+            self.pos.push(0.0);
+            self.pos.push(0.0);
+            self.pos.push(0.0);
+            self.scl.push(1.0);
+            self.scl.push(1.0);
+            self.scl.push(1.0);
+            self.aid.push(0.0);
             self.count = 1;
         }
         let scl = self.scl.clone();

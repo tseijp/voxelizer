@@ -5,18 +5,17 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::utils as U;
+use crate::mesh::{ Mesh };
+use crate::chunk::{ Chunk, create_chunk };
 use wasm_bindgen::JsValue;
 use web_sys::{ CanvasRenderingContext2d, HtmlImageElement };
 
-struct ChunkVox {
-    vox: Vec<u8>,
-}
 struct RegionState {
     img: Option<HtmlImageElement>,
     pending: bool,
-    chunks: Vec<(i32, i32, i32)>,
+    chunks: HashMap<i32, Chunk>,
+    queue: Vec<Chunk>,
     cursor: usize,
-    vox: HashMap<i32, ChunkVox>,
     ctx: Option<CanvasRenderingContext2d>,
     slot: i32,
 }
@@ -29,7 +28,7 @@ pub struct Region {
     pub x: f32,
     pub y: f32,
     pub z: f32,
-    mesh: JsValue,
+    mesh: Rc<RefCell<Mesh>>,
     queues: JsValue,
     st: Rc<RefCell<RegionState>>,
 }
@@ -37,11 +36,15 @@ pub struct Region {
 fn make_region(mesh: &JsValue, queues: &JsValue, i: i32, j: i32) -> Region {
     let (x, y, z) = U::off_of(i, j);
     let id = U::region_id(i, j);
-    let mut q = Vec::new();
-    for k in 0..U::CHUNK {
-        for j2 in 0..U::CHUNK {
-            for i2 in 0..U::CHUNK {
-                q.push((i2, j2, k));
+    let mut chunks = HashMap::new();
+    let mut queue = Vec::new();
+    for k in 0..16 {
+        for j2 in 0..16 {
+            for i2 in 0..16 {
+                let c = create_chunk(i2, j2, k);
+                let c_id = c.id;
+                queue.push(c.clone());
+                chunks.insert(c_id, c);
             }
         }
     }
@@ -58,9 +61,9 @@ fn make_region(mesh: &JsValue, queues: &JsValue, i: i32, j: i32) -> Region {
             RefCell::new(RegionState {
                 img: None,
                 pending: false,
-                chunks: q,
+                chunks,
+                queue,
                 cursor: 0,
-                vox: HashMap::new(),
                 ctx: None,
                 slot: -1,
             })
@@ -84,97 +87,55 @@ impl Region {
     pub fn chunk(&mut self, ctx: &CanvasRenderingContext2d, index: i32, budget: i32) -> bool {
         self.st.borrow_mut().ctx = Some(ctx.clone());
         let start = now();
+        let budget_ms = budget as f64;
+        let checker = || now() - start < budget_ms;
         loop {
             let mut st = self.st.borrow_mut();
-            if st.cursor >= st.chunks.len() {
+            if st.cursor >= st.queue.len() {
                 break;
             }
-            if now() - start > (budget as f64) {
-                return false;
-            }
-            let (ci, cj, ck) = st.chunks[st.cursor];
+            let mut c = st.queue[st.cursor].clone();
             st.cursor += 1;
-            let key = chunk_key(ci, cj, ck);
-            if st.vox.contains_key(&key) {
-                continue;
-            }
             if st.img.is_none() {
                 return false;
             }
-            let (ox, oy) = (
-                ((ck & 3) * 1024 + ci * 64) as i32,
-                ((ck >> 2) * 1024 + cj * 64) as i32,
-            );
-            let imgd = ctx.get_image_data(ox as f64, oy as f64, 64.0, 64.0).unwrap();
-            let data = imgd.data();
             drop(st);
-            let mut vox = vec![0u8;(U::CHUNK*U::CHUNK*U::CHUNK) as usize];
-            let mut p = 0usize;
-            for z in 0..U::CHUNK {
-                for y in 0..U::CHUNK {
-                    for x in 0..U::CHUNK {
-                        let px = ((z & 3) * 16 + x) as i32;
-                        let py = ((z >> 2) * 16 + y) as i32;
-                        let si = ((py * 64 + px) * 4) as u32 as usize;
-                        let a = data.get(si + 3).unwrap_or(&0);
-                        vox[p] = if *a > 0 { 1 } else { 0 };
-                        p += 1;
-                    }
-                }
+            if !checker() {
+                return false;
             }
-            let gm = crate::chunk::greedy_mesh(
-                &js_sys::Uint8Array::from(vox.as_slice()),
-                U::CHUNK as u32
-            );
-            let pos: Float32Array = Reflect::get(&gm, &"pos".into()).unwrap().unchecked_into();
-            let scl: Float32Array = Reflect::get(&gm, &"scl".into()).unwrap().unchecked_into();
-            let cnt = Reflect::get(&gm, &"count".into()).unwrap().as_f64().unwrap_or(0.0) as i32;
-            offset_pos(&pos, (ci * 16) as f32, (cj * 16) as f32, (ck * 16) as f32);
-            let obj = Object::new();
-            let _ = Reflect::set(&obj, &"pos".into(), &pos);
-            let _ = Reflect::set(&obj, &"scl".into(), &scl);
-            let _ = Reflect::set(&obj, &"count".into(), &JsValue::from_f64(cnt as f64));
+            c.load(ctx);
             let merge = Reflect::get(&self.mesh, &"merge".into())
                 .unwrap()
                 .unchecked_into::<Function>();
-            let _ = merge.call2(&self.mesh, &obj, &JsValue::from_f64(index as f64));
-            self.st.borrow_mut().vox.insert(key, ChunkVox { vox });
+            let _ = merge.call2(
+                &self.mesh,
+                &JsValue::from(c.clone()),
+                &JsValue::from_f64(index as f64)
+            );
         }
         true
     }
     pub fn get(&self, ci: i32, cj: i32, ck: i32) -> JsValue {
-        let key = chunk_key(ci, cj, ck);
-        if let Some(v) = self.st.borrow().vox.get(&key) {
-            let a = js_sys::Uint8Array::from(v.vox.as_slice());
-            return a.into();
+        let key = U::chunk_id(ci, cj, ck);
+        let chunk_exists = self.st.borrow().chunks.contains_key(&key);
+        if !chunk_exists {
+            return JsValue::UNDEFINED;
         }
-        let (img_exist, ctx_opt) = {
+        let chunk_ref = {
             let st = self.st.borrow();
-            (st.img.is_some(), st.ctx.clone())
+            st.chunks.get(&key).cloned()
         };
-        if !img_exist { return JsValue::UNDEFINED; }
-        let Some(ctx) = ctx_opt else { return JsValue::UNDEFINED };
-        let ox = ((ck & 3) * 1024 + ci * 64) as i32;
-        let oy = ((ck >> 2) * 1024 + cj * 64) as i32;
-        let imgd = match ctx.get_image_data(ox as f64, oy as f64, 64.0, 64.0) { Ok(v) => v, Err(_) => return JsValue::UNDEFINED };
-        let data = imgd.data();
-        let mut vox = vec![0u8;(U::CHUNK*U::CHUNK*U::CHUNK) as usize];
-        let mut p = 0usize;
-        for z in 0..U::CHUNK { for y in 0..U::CHUNK { for x in 0..U::CHUNK {
-            let px = ((z & 3) * 16 + x) as i32;
-            let py = ((z >> 2) * 16 + y) as i32;
-            let si = ((py * 64 + px) * 4) as u32 as usize;
-            let a = data.get(si + 3).unwrap_or(&0);
-            vox[p] = if *a > 0 { 1 } else { 0 };
-            p += 1;
-        }}}
-        self.st.borrow_mut().vox.insert(key, ChunkVox { vox: vox.clone() });
-        js_sys::Uint8Array::from(vox.as_slice()).into()
+        if let Some(chunk) = chunk_ref {
+            return JsValue::from(chunk);
+        }
+        JsValue::UNDEFINED
     }
     pub fn dispose(&mut self) -> bool {
         let mut st = self.st.borrow_mut();
-        st.chunks.clear();
-        st.vox.clear();
+        for (_, mut chunk) in st.chunks.drain() {
+            chunk.dispose();
+        }
+        st.queue.clear();
         st.ctx = None;
         st.img = None;
         st.pending = false;
@@ -246,7 +207,7 @@ impl Region {
 
 #[wasm_bindgen]
 pub struct Regions {
-    mesh: JsValue,
+    mesh: Rc<RefCell<Mesh>>,
     cam: JsValue,
     queues: JsValue,
     regions: std::cell::RefCell<HashMap<i32, JsValue>>,
@@ -254,7 +215,8 @@ pub struct Regions {
 
 #[wasm_bindgen(js_name = createRegions)]
 pub fn create_regions(mesh: JsValue, cam: JsValue, q: JsValue) -> Regions {
-    Regions { mesh, cam, queues: q, regions: std::cell::RefCell::new(HashMap::new()) }
+    let mesh_rc = Rc::new(RefCell::new(mesh.unchecked_into::<Mesh>()));
+    Regions { mesh: mesh_rc, cam, queues: q, regions: std::cell::RefCell::new(HashMap::new()) }
 }
 
 #[wasm_bindgen]
@@ -280,7 +242,9 @@ impl Regions {
             };
             let mvp_val = Reflect::get(&self.cam, &JsValue::from_str("MVP")).unwrap();
             let vp = mvp_val.unchecked_into::<Float32Array>();
-            let is_ready_fn: Function = Reflect::get(&self.mesh, &JsValue::from_str("isReady")).unwrap().unchecked_into();
+            let is_ready_fn: Function = Reflect::get(&self.mesh, &JsValue::from_str("isReady"))
+                .unwrap()
+                .unchecked_into();
             let mesh_ready = is_ready_fn.call0(&self.mesh).unwrap().as_bool().unwrap_or(false);
             for di in 0..U::PREFETCH * 2 {
                 for dj in 0..U::PREFETCH * 2 {
@@ -292,62 +256,109 @@ impl Regions {
                         continue;
                     }
                     let d = ((i * i + j * j) as f32).sqrt();
-                    i += si; j += sj;
-                    if !U::scoped(i, j) { continue; }
+                    i += si;
+                    j += sj;
+                    let (x, y, z) = U::off_of(i, j);
+                    if !U::culling(&vp, x, y, z) && d > (U::SLOT as f32) {
+                        continue;
+                    }
+                    if !U::scoped(i, j) {
+                        continue;
+                    }
                     let id = ensure(&mut m, i, j);
                     let r = m.get(&id).unwrap();
-                    let x = Reflect::get(r, &JsValue::from_str("x")).unwrap().as_f64().unwrap_or(0.0) as f32;
-                    let y = Reflect::get(r, &JsValue::from_str("y")).unwrap().as_f64().unwrap_or(0.0) as f32;
-                    let z = Reflect::get(r, &JsValue::from_str("z")).unwrap().as_f64().unwrap_or(0.0) as f32;
-                    if !U::culling(&vp, x, y, z) && d > (U::SLOT as f32) { continue; }
                     if d <= (U::SLOT as f32) {
-                        if mesh_ready { prefetch_near.push(r.clone()); }
+                        if mesh_ready {
+                            prefetch_near.push(r.clone());
+                        }
                     }
-                    if !U::culling(&vp, x, y, z) { continue; }
+                    if !U::culling(&vp, x, y, z) {
+                        continue;
+                    }
                     list.push((i, j, d, id));
                 }
             }
         }
-        list.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
+        list.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
         let mut keep = Vec::new();
         for (i, j, d, id) in list.into_iter() {
-            if !U::scoped(i, j) { continue; }
+            if !U::scoped(i, j) {
+                continue;
+            }
             keep.push((i, j, d, id));
-            if keep.len() >= U::SLOT as usize { break; }
+            if keep.len() >= (U::SLOT as usize) {
+                break;
+            }
         }
-        let mut keep_set = Set::new(&JsValue::undefined());
+        let keep_set = Set::new(&JsValue::undefined());
         {
             let m = self.regions.borrow();
             for (_, _, _, id) in &keep {
                 let r = m.get(id).unwrap();
-                let pf: Function = Reflect::get(r, &JsValue::from_str("prefetch")).unwrap().unchecked_into();
+                let pf: Function = Reflect::get(r, &JsValue::from_str("prefetch"))
+                    .unwrap()
+                    .unchecked_into();
                 let _ = pf.call1(r, &JsValue::from_f64(2.0));
                 let _ = keep_set.add(r);
             }
         }
-        let mut active = Set::new(&JsValue::undefined());
-        if let Ok(Some(iter)) = js_sys::try_iter(&keep_set) { for v in iter { let r = v.unwrap(); let _ = active.add(&r); } }
+        let active = Set::new(&JsValue::undefined());
+        if let Ok(Some(iter)) = js_sys::try_iter(&keep_set) {
+            for v in iter {
+                let r = v.unwrap();
+                let _ = active.add(&r);
+            }
+        }
         for r in prefetch_near.into_iter() {
             let _ = active.add(&r);
-            let fetching: Function = Reflect::get(&r, &JsValue::from_str("fetching")).unwrap().unchecked_into();
+            let fetching: Function = Reflect::get(&r, &JsValue::from_str("fetching"))
+                .unwrap()
+                .unchecked_into();
             let is_fetching = fetching.call0(&r).unwrap().as_bool().unwrap_or(false);
-            if is_fetching { continue; }
-            let pf: Function = Reflect::get(&r, &JsValue::from_str("prefetch")).unwrap().unchecked_into();
+            if is_fetching {
+                continue;
+            }
+            let pf: Function = Reflect::get(&r, &JsValue::from_str("prefetch"))
+                .unwrap()
+                .unchecked_into();
             let _ = pf.call1(&r, &JsValue::from_f64(0.0));
         }
         if let Some((oi, oj, _, _)) = keep.get(0).cloned() {
-            let mut to_remove: Vec<(f32, i32)> = Vec::new();
-            let mut map = self.regions.borrow_mut();
-            for (id, r) in map.iter() {
-                if active.has(r) { continue; }
-                let ri = Reflect::get(r, &JsValue::from_str("i")).unwrap().as_f64().unwrap_or(0.0) as i32;
-                let rj = Reflect::get(r, &JsValue::from_str("j")).unwrap().as_f64().unwrap_or(0.0) as i32;
-                let da = ((ri - oi) as f32).hypot((rj - oj) as f32);
-                to_remove.push((da, *id));
+            let current_size = self.regions.borrow().len();
+            if current_size <= (U::CACHE as usize) {
+                return keep_set;
             }
-            to_remove.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
-            while (map.len() as i32) > U::CACHE {
-                if let Some((_, rid)) = to_remove.pop() { let r = map.remove(&rid).unwrap(); let disp: Function = Reflect::get(&r, &JsValue::from_str("dispose")).unwrap().unchecked_into(); let _ = disp.call0(&r); }
+            let mut to_remove: Vec<(f32, i32)> = Vec::new();
+            {
+                let map = self.regions.borrow();
+                for (id, r) in map.iter() {
+                    if active.has(r) {
+                        continue;
+                    }
+                    let ri = Reflect::get(r, &JsValue::from_str("i"))
+                        .unwrap()
+                        .as_f64()
+                        .unwrap_or(0.0) as i32;
+                    let rj = Reflect::get(r, &JsValue::from_str("j"))
+                        .unwrap()
+                        .as_f64()
+                        .unwrap_or(0.0) as i32;
+                    let da = ((ri - oi) as f32).hypot((rj - oj) as f32);
+                    to_remove.push((da, *id));
+                }
+            }
+            to_remove.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            let mut map = self.regions.borrow_mut();
+            for (_, rid) in to_remove.into_iter() {
+                if map.len() <= (U::CACHE as usize) {
+                    break;
+                }
+                if let Some(r) = map.remove(&rid) {
+                    let disp: Function = Reflect::get(&r, &JsValue::from_str("dispose"))
+                        .unwrap()
+                        .unchecked_into();
+                    let _ = disp.call0(&r);
+                }
             }
         }
         keep_set
@@ -380,7 +391,7 @@ impl Regions {
             return 0;
         }
         let get_fn: Function = Reflect::get(r, &JsValue::from_str("get")).unwrap().unchecked_into();
-        let vox_js = get_fn
+        let chunk_js = get_fn
             .call3(
                 r,
                 &JsValue::from_f64(ci as f64),
@@ -388,31 +399,41 @@ impl Regions {
                 &JsValue::from_f64(ck as f64)
             )
             .unwrap();
-        if vox_js.is_undefined() {
+        if chunk_js.is_undefined() {
             return 0;
         }
-        let vx = ((lx - (ci as f32) * (U::CHUNK as f32)).floor() as i32).clamp(0, 15);
-        let vy = ((ly - (cj as f32) * (U::CHUNK as f32)).floor() as i32).clamp(0, 15);
-        let vz = ((lz - (ck as f32) * (U::CHUNK as f32)).floor() as i32).clamp(0, 15);
+        let vox_fn: Function = Reflect::get(&chunk_js, &JsValue::from_str("vox"))
+            .unwrap()
+            .unchecked_into();
+        let mut vox_data = vox_fn.call0(&chunk_js).unwrap();
+        if vox_data.is_undefined() {
+            let ctx_fn = Reflect::get(r, &JsValue::from_str("ctx"))
+                .unwrap()
+                .unchecked_into::<Function>();
+            let ctx = ctx_fn.call0(r).unwrap();
+            if !ctx.is_undefined() {
+                let load_fn: Function = Reflect::get(&chunk_js, &JsValue::from_str("load"))
+                    .unwrap()
+                    .unchecked_into();
+                let _ = load_fn.call1(&chunk_js, &ctx);
+                vox_data = vox_fn.call0(&chunk_js).unwrap();
+            }
+        }
+        if vox_data.is_undefined() {
+            return 0;
+        }
+        let vx = (lx - (ci as f32) * (U::CHUNK as f32)).floor() as i32;
+        let vy = (ly - (cj as f32) * (U::CHUNK as f32)).floor() as i32;
+        let vz = (lz - (ck as f32) * (U::CHUNK as f32)).floor() as i32;
+        if vx < 0 || vx > 15 || vy < 0 || vy > 15 || vz < 0 || vz > 15 {
+            return 0;
+        }
         let idx = (vx + (vy + vz * U::CHUNK) * U::CHUNK) as u32;
-        let arr = js_sys::Uint8Array::from(vox_js);
+        let arr = js_sys::Uint8Array::from(vox_data);
         arr.get_index(idx) as i32
     }
 }
 
-fn chunk_key(i: i32, j: i32, k: i32) -> i32 {
-    U::chunk_id(i, j, k)
-}
-fn offset_pos(a: &Float32Array, ox: f32, oy: f32, oz: f32) {
-    let mut v = vec![0.0f32;a.length() as usize];
-    a.copy_to(&mut v[..]);
-    for i in (0..v.len()).step_by(3) {
-        v[i] += ox;
-        v[i + 1] += oy;
-        v[i + 2] += oz;
-    }
-    a.copy_from(&v[..])
-}
 fn now() -> f64 {
     web_sys::window().unwrap().performance().unwrap().now()
 }
