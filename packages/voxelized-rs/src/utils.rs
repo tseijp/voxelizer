@@ -140,7 +140,9 @@ pub fn transform_vec3(out: &mut [f32; 3], a: &[f32; 3], m: &[f32; 16]) {
 
 pub fn vis_sphere(m: &[f32; 16], cx: f32, cy: f32, cz: f32, r: f32) -> bool {
     let t = |ax: f32, ay: f32, az: f32, aw: f32| {
-        (ax * cx + ay * cy + az * cz + aw) / ax.hypot(ay).hypot(az).max(1e-6) + r < 0.0
+        let n = (ax * ax + ay * ay + az * az).sqrt();
+        let d = if n == 0.0 { 1.0 } else { n };
+        (ax * cx + ay * cy + az * cz + aw) / d + r < 0.0
     };
     if t(m[3] + m[0], m[7] + m[4], m[11] + m[8], m[15] + m[12]) {
         return false;

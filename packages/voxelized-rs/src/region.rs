@@ -265,6 +265,7 @@ impl Regions {
         let pos = pos_val.unchecked_into::<Float32Array>();
         let p = [pos.get_index(0), pos.get_index(1), pos.get_index(2)];
         let (si, sj) = U::pos_of(&[p[0], p[1], p[2]]);
+        let mut prefetch_near: Vec<JsValue> = Vec::new();
         {
             let mut m = self.regions.borrow_mut();
             let mesh = self.mesh.clone();
@@ -277,7 +278,10 @@ impl Regions {
                 }
                 id
             };
-            let mut prefetch_near: Vec<JsValue> = Vec::new();
+            let mvp_val = Reflect::get(&self.cam, &JsValue::from_str("MVP")).unwrap();
+            let vp = mvp_val.unchecked_into::<Float32Array>();
+            let is_ready_fn: Function = Reflect::get(&self.mesh, &JsValue::from_str("isReady")).unwrap().unchecked_into();
+            let mesh_ready = is_ready_fn.call0(&self.mesh).unwrap().as_bool().unwrap_or(false);
             for di in 0..U::PREFETCH * 2 {
                 for dj in 0..U::PREFETCH * 2 {
                     let mut i = di - U::PREFETCH;
@@ -288,50 +292,65 @@ impl Regions {
                         continue;
                     }
                     let d = ((i * i + j * j) as f32).sqrt();
-                    i += si;
-                    j += sj;
-                    if !U::scoped(i, j) {
-                        continue;
-                    }
+                    i += si; j += sj;
+                    if !U::scoped(i, j) { continue; }
                     let id = ensure(&mut m, i, j);
                     let r = m.get(&id).unwrap();
-                    let x = Reflect::get(r, &JsValue::from_str("x"))
-                        .unwrap()
-                        .as_f64()
-                        .unwrap_or(0.0) as f32;
-                    let y = Reflect::get(r, &JsValue::from_str("y"))
-                        .unwrap()
-                        .as_f64()
-                        .unwrap_or(0.0) as f32;
-                    let z = Reflect::get(r, &JsValue::from_str("z"))
-                        .unwrap()
-                        .as_f64()
-                        .unwrap_or(0.0) as f32;
-                    let mvp_val = Reflect::get(&self.cam, &JsValue::from_str("MVP")).unwrap();
-                    let vp = mvp_val.unchecked_into::<Float32Array>();
+                    let x = Reflect::get(r, &JsValue::from_str("x")).unwrap().as_f64().unwrap_or(0.0) as f32;
+                    let y = Reflect::get(r, &JsValue::from_str("y")).unwrap().as_f64().unwrap_or(0.0) as f32;
+                    let z = Reflect::get(r, &JsValue::from_str("z")).unwrap().as_f64().unwrap_or(0.0) as f32;
                     if !U::culling(&vp, x, y, z) && d > (U::SLOT as f32) { continue; }
                     if d <= (U::SLOT as f32) {
-                        prefetch_near.push(r.clone());
+                        if mesh_ready { prefetch_near.push(r.clone()); }
                     }
                     if !U::culling(&vp, x, y, z) { continue; }
                     list.push((i, j, d, id));
                 }
             }
-            for r in prefetch_near {
-                let prefetch: Function = Reflect::get(&r, &JsValue::from_str("prefetch")).unwrap().unchecked_into();
-                let _ = prefetch.call1(&r, &JsValue::from_f64(0.0));
-            }
         }
         list.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
-        let mut set = Set::new(&JsValue::undefined());
-        let m = self.regions.borrow();
-        for (_, _, _, id) in list.into_iter().take(U::SLOT as usize) {
-            let r = m.get(&id).unwrap();
-            let pf: Function = Reflect::get(r, &JsValue::from_str("prefetch")).unwrap().unchecked_into();
-            let _ = pf.call1(r, &JsValue::from_f64(2.0));
-            let _ = set.add(r);
+        let mut keep = Vec::new();
+        for (i, j, d, id) in list.into_iter() {
+            if !U::scoped(i, j) { continue; }
+            keep.push((i, j, d, id));
+            if keep.len() >= U::SLOT as usize { break; }
         }
-        set
+        let mut keep_set = Set::new(&JsValue::undefined());
+        {
+            let m = self.regions.borrow();
+            for (_, _, _, id) in &keep {
+                let r = m.get(id).unwrap();
+                let pf: Function = Reflect::get(r, &JsValue::from_str("prefetch")).unwrap().unchecked_into();
+                let _ = pf.call1(r, &JsValue::from_f64(2.0));
+                let _ = keep_set.add(r);
+            }
+        }
+        let mut active = Set::new(&JsValue::undefined());
+        if let Ok(Some(iter)) = js_sys::try_iter(&keep_set) { for v in iter { let r = v.unwrap(); let _ = active.add(&r); } }
+        for r in prefetch_near.into_iter() {
+            let _ = active.add(&r);
+            let fetching: Function = Reflect::get(&r, &JsValue::from_str("fetching")).unwrap().unchecked_into();
+            let is_fetching = fetching.call0(&r).unwrap().as_bool().unwrap_or(false);
+            if is_fetching { continue; }
+            let pf: Function = Reflect::get(&r, &JsValue::from_str("prefetch")).unwrap().unchecked_into();
+            let _ = pf.call1(&r, &JsValue::from_f64(0.0));
+        }
+        if let Some((oi, oj, _, _)) = keep.get(0).cloned() {
+            let mut to_remove: Vec<(f32, i32)> = Vec::new();
+            let mut map = self.regions.borrow_mut();
+            for (id, r) in map.iter() {
+                if active.has(r) { continue; }
+                let ri = Reflect::get(r, &JsValue::from_str("i")).unwrap().as_f64().unwrap_or(0.0) as i32;
+                let rj = Reflect::get(r, &JsValue::from_str("j")).unwrap().as_f64().unwrap_or(0.0) as i32;
+                let da = ((ri - oi) as f32).hypot((rj - oj) as f32);
+                to_remove.push((da, *id));
+            }
+            to_remove.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+            while (map.len() as i32) > U::CACHE {
+                if let Some((_, rid)) = to_remove.pop() { let r = map.remove(&rid).unwrap(); let disp: Function = Reflect::get(&r, &JsValue::from_str("dispose")).unwrap().unchecked_into(); let _ = disp.call0(&r); }
+            }
+        }
+        keep_set
     }
     pub fn pick(&self, wx: f32, wy: f32, wz: f32) -> i32 {
         let (rxi, ryj) = (
