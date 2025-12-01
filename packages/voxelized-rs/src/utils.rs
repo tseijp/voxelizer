@@ -75,13 +75,13 @@ pub fn look_at(out: &mut [f32; 16], eye: [f32; 3], center: [f32; 3], up: [f32; 3
     out[15] = 1.0;
 }
 pub fn mul(out: &mut [f32; 16], a: &[f32; 16], b: &[f32; 16]) {
-    for i in 0..4 {
-        for j in 0..4 {
-            out[i * 4 + j] =
-                a[i * 4 + 0] * b[0 * 4 + j] +
-                a[i * 4 + 1] * b[1 * 4 + j] +
-                a[i * 4 + 2] * b[2 * 4 + j] +
-                a[i * 4 + 3] * b[3 * 4 + j];
+    for row in 0..4 {
+        for col in 0..4 {
+            out[row + col * 4] =
+                a[row + 0 * 4] * b[0 + col * 4] +
+                a[row + 1 * 4] * b[1 + col * 4] +
+                a[row + 2 * 4] * b[2 + col * 4] +
+                a[row + 3 * 4] * b[3 + col * 4];
         }
     }
 }

@@ -23,6 +23,7 @@ pub struct Camera {
     x0: f32,
     y0: f32,
     is_ground: bool,
+    scroll: f32,
 }
 
 fn face_dir(yaw: f32, pitch: f32) -> [f32; 3] {
@@ -94,6 +95,7 @@ pub fn create_camera(opts: &JsValue) -> Camera {
         x0: x,
         y0: y,
         is_ground: false,
+        scroll: 0.0,
     }
 }
 
@@ -177,10 +179,10 @@ impl Camera {
             return;
         }
         if self.mode == -1 {
-            self.pos[0] = self.x0 - dt * self.move_speed;
-            if self.pos[0] < 0.0 {
-                self.pos[0] = (U::ROW * U::REGION) as f32;
-            }
+            self.scroll -= dt * self.move_speed;
+            self.pos[0] = self.x0 + self.scroll;
+            if self.pos[0] < 0.0 { self.pos[0] = (U::ROW * U::REGION) as f32; }
+            if self.pos[0] > (U::ROW * U::REGION) as f32 { self.pos[0] = 0.0; }
             let f = face_dir(self.yaw, self.pitch);
             self.eye = look_target(self.pos, f);
             return;

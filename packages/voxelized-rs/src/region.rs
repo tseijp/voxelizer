@@ -129,12 +129,7 @@ impl Region {
             let pos: Float32Array = Reflect::get(&gm, &"pos".into()).unwrap().unchecked_into();
             let scl: Float32Array = Reflect::get(&gm, &"scl".into()).unwrap().unchecked_into();
             let cnt = Reflect::get(&gm, &"count".into()).unwrap().as_f64().unwrap_or(0.0) as i32;
-            offset_pos(
-                &pos,
-                ((ci * 16) as f32) + self.x,
-                ((cj * 16) as f32) + self.y,
-                ((ck * 16) as f32) + self.z
-            );
+            offset_pos(&pos, (ci * 16) as f32, (cj * 16) as f32, (ck * 16) as f32);
             let obj = Object::new();
             let _ = Reflect::set(&obj, &"pos".into(), &pos);
             let _ = Reflect::set(&obj, &"scl".into(), &scl);
