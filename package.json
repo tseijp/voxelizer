@@ -17,8 +17,8 @@
                 "tsup": "*"
         },
         "workspaces": [
-                "examples/**/*",
-                "packages/**/*"
+                "packages/**/*",
+                "projects/**/*"
         ],
         "dependencies": {
                 "rege": "^0.2.0"

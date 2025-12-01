@@ -87,11 +87,17 @@ impl Slots {
                 return false;
             }
         }
-        let slot = &mut self.owner[index as usize];
-        if !region_is_same {
-            slot.region = Some(r.clone());
+        {
+            let slot = &mut self.owner[index as usize];
+            if !region_is_same {
+                slot.region = Some(r.clone());
+            }
         }
-        if !slot.is_ready {
+        let need_ready = {
+            let s = &self.owner[index as usize];
+            !s.is_ready
+        };
+        if need_ready {
             if !self.ready(c, pg, index) {
                 return false;
             }
@@ -99,13 +105,9 @@ impl Slots {
         let chunk_fn: Function = Reflect::get(&r, &JsValue::from_str("chunk"))
             .unwrap()
             .unchecked_into();
+        let ctx2 = { self.owner[index as usize].ctx.clone() };
         let ok = chunk_fn
-            .call3(
-                &r,
-                &slot.ctx,
-                &JsValue::from_f64(index as f64),
-                &JsValue::from_f64(budget as f64)
-            )
+            .call3(&r, &ctx2, &JsValue::from_f64(index as f64), &JsValue::from_f64(budget as f64))
             .unwrap()
             .as_bool()
             .unwrap_or(false);

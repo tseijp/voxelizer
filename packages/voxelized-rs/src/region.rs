@@ -6,14 +6,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use crate::utils as U;
 use wasm_bindgen::JsValue;
-use web_sys::{
-    CanvasRenderingContext2d,
-    HtmlImageElement,
-    WebGl2RenderingContext,
-    WebGlProgram,
-    WebGlTexture,
-    WebGlUniformLocation,
-};
+use web_sys::{ CanvasRenderingContext2d, HtmlImageElement };
 
 struct ChunkVox {
     vox: Vec<u8>,
@@ -192,16 +185,16 @@ impl Region {
                         s.pending = false;
                     }) as Box<dyn FnMut(JsValue)>
                 );
-                let f: &Function = then.as_ref().unchecked_ref();
-                let _ = p.then(f);
+                let _ = p.then(&then);
                 then.forget();
                 p
             }) as Box<dyn FnMut() -> Promise>
         );
+        let start_js = start.as_ref().clone();
         let o: Object = Reflect::get(queues_obj, &"schedule".into())
             .unwrap()
             .unchecked_into::<Function>()
-            .call2(&self.queues, &start.into_js_value(), &JsValue::from_f64(priority as f64))
+            .call2(&self.queues, &start_js, &JsValue::from_f64(priority as f64))
             .unwrap()
             .unchecked_into();
         start.forget();

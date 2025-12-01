@@ -1,8 +1,6 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use js_sys::{ Function, Promise };
-use std::rc::Rc;
-use std::cell::RefCell;
 
 pub const SCOPE_X0: i32 = 28;
 pub const SCOPE_X1: i32 = 123;
@@ -121,7 +119,6 @@ pub fn culling(mvp: &js_sys::Float32Array, rx: f32, ry: f32, rz: f32) -> bool {
     vis_sphere(&a, x, y, z, (256.0f32 * 256.0 * 3.0).sqrt() * 0.5)
 }
 
-#[wasm_bindgen]
 pub fn range(n: u32) -> js_sys::Array {
     let a = js_sys::Array::new();
     for i in 0..n {
@@ -154,9 +151,10 @@ pub fn create_context() -> web_sys::CanvasRenderingContext2d {
 pub fn create_image(src: &str) -> js_sys::Promise {
     let img = web_sys::HtmlImageElement::new().unwrap();
     let (p, resolve) = promise_pair();
+    let img2 = img.clone();
     let onload = Closure::wrap(
         Box::new(move || {
-            let _ = resolve.call1(&JsValue::NULL, &img.clone().into());
+            let _ = resolve.call1(&JsValue::NULL, &img2.clone().into());
         }) as Box<dyn FnMut()>
     );
     img.set_onload(Some(onload.as_ref().unchecked_ref()));
@@ -185,15 +183,9 @@ pub fn get_f32(o: &JsValue, k: &str, def: f32) -> f32 {
 }
 
 fn promise_pair() -> (Promise, Function) {
-    let cell = Rc::new(RefCell::new(None));
-    let cell2 = cell.clone();
-    let mut exec = Closure::wrap(
-        Box::new(move |res: Function, _rej: Function| {
-            *cell2.borrow_mut() = Some(res);
-        }) as Box<dyn FnMut(Function, Function)>
-    );
-    let p = Promise::new(exec.as_mut().unchecked_ref());
-    let r = cell.borrow().clone().unwrap_or(Function::new_no_args(""));
-    exec.forget();
-    (p, r)
+    let mut resolve_fn: Option<Function> = None;
+    let p = Promise::new(&mut |res: Function, _rej: Function| {
+        resolve_fn = Some(res);
+    });
+    (p, resolve_fn.unwrap())
 }

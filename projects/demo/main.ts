@@ -1,9 +1,14 @@
-import { createCamera, createMesh, createQueues, createRegions, createSlots, range, REGION, ROW, SCOPE } from 'voxelized-js/src'
+// import { createCamera, createMesh, createQueues, createRegions, createSlots, REGION, ROW, SCOPE } from 'voxelized-js/src'
 import { attribute, float, Fn, If, instance, int, ivec2, mat4, texelFetch, texture2D, uniform, vec3, vec4, vertexStage } from 'glre/src/node'
 import { createGL, type GL } from 'glre/src'
 import type { Float, IVec2, IVec3, Vec3 } from 'glre/src/node'
 
+const SCOPE = { x0: 28, x1: 123, y0: 75, y1: 79 }
+const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 const SLOT = 16
+const REGION = 256
+
+const range = (n = 0) => [...Array(n).keys()]
 
 const createMode = () => {
         let mode = -1 // 0 is creative
@@ -77,7 +82,8 @@ export const createNode = () => {
         return { vert, frag, iMVP }
 }
 
-const createViewer = () => {
+const createViewer = async () => {
+        const { createCamera, createMesh, createQueues, createRegions, createSlots } = await import('voxelized-rs')
         let isReady = false
         let isLoading = false
         let ts = performance.now()
@@ -129,9 +135,9 @@ const createViewer = () => {
         return { mode, node, cam, render, resize, pt: 0 }
 }
 
-const App = () => {
+const App = async () => {
         const canvas = document.createElement('canvas')
-        const viewer = createViewer()
+        const viewer = await createViewer()
         const gl = createGL({
                 precision: 'highp',
                 el: canvas,

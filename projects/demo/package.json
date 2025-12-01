@@ -12,6 +12,7 @@
                 "typescript": "*",
                 "glre": "0.45.0",
                 "vite": "7",
+                "vite-plugin-wasm": "3.5.0",
                 "voxelized-js": "*",
                 "voxelized-rs": "*",
                 "voxelizer-js": "*",

@@ -91,9 +91,12 @@ impl Mesh {
             self.aid = vec![0.0];
             self.count = 1;
         }
-        self.attr(&c, &pg, &self.scl, "scl", 3);
-        self.attr(&c, &pg, &self.pos, "pos", 3);
-        self.attr(&c, &pg, &self.aid, "aid", 1);
+        let scl = self.scl.clone();
+        let pos = self.pos.clone();
+        let aid = self.aid.clone();
+        self.attr(&c, &pg, &scl, "scl", 3);
+        self.attr(&c, &pg, &pos, "pos", 3);
+        self.attr(&c, &pg, &aid, "aid", 1);
         self.count
     }
     pub fn count(&self) -> u32 {
