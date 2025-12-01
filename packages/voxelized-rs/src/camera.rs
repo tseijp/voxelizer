@@ -27,11 +27,18 @@ pub struct Camera {
 }
 
 fn face_dir(yaw: f32, pitch: f32) -> [f32; 3] {
-    let sy = yaw.sin();
-    let cy = yaw.cos();
-    let sp = pitch.sin();
-    let cp = pitch.cos();
-    [-sy, -sp * cy, -cp * cy]
+    let mut r = [0.0f32; 16];
+    let mut t = [0.0f32; 16];
+    U::look_at(&mut r, [0.0,0.0,0.0], [0.0,0.0,-1.0], [0.0,1.0,0.0]);
+    // reuse identity pattern via perspective with aspect=1 to avoid new helper; then overwrite to identity
+    for i in 0..16 { r[i] = 0.0; }
+    r[0]=1.0; r[5]=1.0; r[10]=1.0; r[15]=1.0;
+    U::rotate_y(&mut t, &r, yaw);
+    U::rotate_x(&mut r, &t, pitch);
+    let f = [0.0, 0.0, -1.0];
+    let mut out = [0.0f32;3];
+    U::transform_vec3(&mut out, &f, &r);
+    out
 }
 fn look_target(pos: [f32; 3], face: [f32; 3]) -> [f32; 3] {
     [pos[0] + face[0] * 10.0, pos[1] + face[1] * 10.0, pos[2] + face[2] * 10.0]
@@ -137,9 +144,7 @@ impl Camera {
             self.asdw(0, if is_press { 1.0 } else { 0.0 });
             return;
         }
-        if self.mode == 1 && is_press {
-            self.vel[1] = self.jump;
-        }
+        if self.mode == 1 && self.is_ground && is_press { self.vel[1] = self.jump; }
     }
     pub fn mode(&mut self, x: i32) {
         self.mode = x;

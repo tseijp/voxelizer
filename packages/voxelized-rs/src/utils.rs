@@ -40,50 +40,102 @@ pub fn perspective(out: &mut [f32; 16], fovy: f32, aspect: f32, near: f32, far: 
     out[14] = (2.0 * far * near) / (near - far);
 }
 pub fn look_at(out: &mut [f32; 16], eye: [f32; 3], center: [f32; 3], up: [f32; 3]) {
-    let fx = center[0] - eye[0];
-    let fy = center[1] - eye[1];
-    let fz = center[2] - eye[2];
-    let fl = (fx * fx + fy * fy + fz * fz).sqrt();
-    let fx = fx / fl;
-    let fy = fy / fl;
-    let fz = fz / fl;
-    let sx = fy * up[2] - fz * up[1];
-    let sy = fz * up[0] - fx * up[2];
-    let sz = fx * up[1] - fy * up[0];
-    let sl = (sx * sx + sy * sy + sz * sz).sqrt();
-    let sx = sx / sl;
-    let sy = sy / sl;
-    let sz = sz / sl;
-    let ux = sy * fz - sz * fy;
-    let uy = sz * fx - sx * fz;
-    let uz = sx * fy - sy * fx;
-    out[0] = sx;
-    out[1] = ux;
-    out[2] = -fx;
-    out[3] = 0.0;
-    out[4] = sy;
-    out[5] = uy;
-    out[6] = -fy;
-    out[7] = 0.0;
-    out[8] = sz;
-    out[9] = uz;
-    out[10] = -fz;
-    out[11] = 0.0;
-    out[12] = -(sx * eye[0] + sy * eye[1] + sz * eye[2]);
-    out[13] = -(ux * eye[0] + uy * eye[1] + uz * eye[2]);
-    out[14] = fx * eye[0] + fy * eye[1] + fz * eye[2];
+    let (eyex, eyey, eyez) = (eye[0], eye[1], eye[2]);
+    let (upx, upy, upz) = (up[0], up[1], up[2]);
+    let (centerx, centery, centerz) = (center[0], center[1], center[2]);
+    let mut z0 = eyex - centerx;
+    let mut z1 = eyey - centery;
+    let mut z2 = eyez - centerz;
+    let mut len = (z0 * z0 + z1 * z1 + z2 * z2).sqrt();
+    if len == 0.0 { z2 = 1.0; } else { z0 /= len; z1 /= len; z2 /= len; }
+    let mut x0 = upy * z2 - upz * z1;
+    let mut x1 = upz * z0 - upx * z2;
+    let mut x2 = upx * z1 - upy * z0;
+    len = (x0 * x0 + x1 * x1 + x2 * x2).sqrt();
+    if len != 0.0 { x0 /= len; x1 /= len; x2 /= len; }
+    let y0 = z1 * x2 - z2 * x1;
+    let y1 = z2 * x0 - z0 * x2;
+    let y2 = z0 * x1 - z1 * x0;
+    out[0] = x0; out[1] = y0; out[2] = z0; out[3] = 0.0;
+    out[4] = x1; out[5] = y1; out[6] = z1; out[7] = 0.0;
+    out[8] = x2; out[9] = y2; out[10] = z2; out[11] = 0.0;
+    out[12] = -(x0 * eyex + x1 * eyey + x2 * eyez);
+    out[13] = -(y0 * eyex + y1 * eyey + y2 * eyez);
+    out[14] = -(z0 * eyex + z1 * eyey + z2 * eyez);
     out[15] = 1.0;
 }
 pub fn mul(out: &mut [f32; 16], a: &[f32; 16], b: &[f32; 16]) {
-    for row in 0..4 {
-        for col in 0..4 {
-            out[row + col * 4] =
-                a[row + 0 * 4] * b[0 + col * 4] +
-                a[row + 1 * 4] * b[1 + col * 4] +
-                a[row + 2 * 4] * b[2 + col * 4] +
-                a[row + 3 * 4] * b[3 + col * 4];
-        }
+    let a00 = a[0];  let a01 = a[1];  let a02 = a[2];  let a03 = a[3];
+    let a10 = a[4];  let a11 = a[5];  let a12 = a[6];  let a13 = a[7];
+    let a20 = a[8];  let a21 = a[9];  let a22 = a[10]; let a23 = a[11];
+    let a30 = a[12]; let a31 = a[13]; let a32 = a[14]; let a33 = a[15];
+    let b00 = b[0];  let b01 = b[1];  let b02 = b[2];  let b03 = b[3];
+    let b10 = b[4];  let b11 = b[5];  let b12 = b[6];  let b13 = b[7];
+    let b20 = b[8];  let b21 = b[9];  let b22 = b[10]; let b23 = b[11];
+    let b30 = b[12]; let b31 = b[13]; let b32 = b[14]; let b33 = b[15];
+    out[0]  = a00 * b00 + a10 * b01 + a20 * b02 + a30 * b03;
+    out[1]  = a01 * b00 + a11 * b01 + a21 * b02 + a31 * b03;
+    out[2]  = a02 * b00 + a12 * b01 + a22 * b02 + a32 * b03;
+    out[3]  = a03 * b00 + a13 * b01 + a23 * b02 + a33 * b03;
+    out[4]  = a00 * b10 + a10 * b11 + a20 * b12 + a30 * b13;
+    out[5]  = a01 * b10 + a11 * b11 + a21 * b12 + a31 * b13;
+    out[6]  = a02 * b10 + a12 * b11 + a22 * b12 + a32 * b13;
+    out[7]  = a03 * b10 + a13 * b11 + a23 * b12 + a33 * b13;
+    out[8]  = a00 * b20 + a10 * b21 + a20 * b22 + a30 * b23;
+    out[9]  = a01 * b20 + a11 * b21 + a21 * b22 + a31 * b23;
+    out[10] = a02 * b20 + a12 * b21 + a22 * b22 + a32 * b23;
+    out[11] = a03 * b20 + a13 * b21 + a23 * b22 + a33 * b23;
+    out[12] = a00 * b30 + a10 * b31 + a20 * b32 + a30 * b33;
+    out[13] = a01 * b30 + a11 * b31 + a21 * b32 + a31 * b33;
+    out[14] = a02 * b30 + a12 * b31 + a22 * b32 + a32 * b33;
+    out[15] = a03 * b30 + a13 * b31 + a23 * b32 + a33 * b33;
+}
+
+pub fn rotate_y(out: &mut [f32; 16], a: &[f32; 16], rad: f32) {
+    let s = rad.sin();
+    let c = rad.cos();
+    let a00 = a[0];  let a01 = a[1];  let a02 = a[2];  let a03 = a[3];
+    let a20 = a[8];  let a21 = a[9];  let a22 = a[10]; let a23 = a[11];
+    if a as *const _ != out as *const _ {
+        out[4] = a[4]; out[5] = a[5]; out[6] = a[6]; out[7] = a[7];
+        out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
     }
+    out[0] = a00 * c - a20 * s;
+    out[1] = a01 * c - a21 * s;
+    out[2] = a02 * c - a22 * s;
+    out[3] = a03 * c - a23 * s;
+    out[8] = a00 * s + a20 * c;
+    out[9] = a01 * s + a21 * c;
+    out[10] = a02 * s + a22 * c;
+    out[11] = a03 * s + a23 * c;
+}
+
+pub fn rotate_x(out: &mut [f32; 16], a: &[f32; 16], rad: f32) {
+    let s = rad.sin();
+    let c = rad.cos();
+    let a10 = a[4];  let a11 = a[5];  let a12 = a[6];  let a13 = a[7];
+    let a20 = a[8];  let a21 = a[9];  let a22 = a[10]; let a23 = a[11];
+    if a as *const _ != out as *const _ {
+        out[0] = a[0]; out[1] = a[1]; out[2] = a[2]; out[3] = a[3];
+        out[12] = a[12]; out[13] = a[13]; out[14] = a[14]; out[15] = a[15];
+    }
+    out[4]  = a10 * c + a20 * s;
+    out[5]  = a11 * c + a21 * s;
+    out[6]  = a12 * c + a22 * s;
+    out[7]  = a13 * c + a23 * s;
+    out[8]  = a20 * c - a10 * s;
+    out[9]  = a21 * c - a11 * s;
+    out[10] = a22 * c - a12 * s;
+    out[11] = a23 * c - a13 * s;
+}
+
+pub fn transform_vec3(out: &mut [f32; 3], a: &[f32; 3], m: &[f32; 16]) {
+    let x = a[0]; let y = a[1]; let z = a[2];
+    let w = m[3] * x + m[7] * y + m[11] * z + m[15];
+    let w = if w == 0.0 { 1.0 } else { w };
+    out[0] = (m[0] * x + m[4] * y + m[8]  * z + m[12]) / w;
+    out[1] = (m[1] * x + m[5] * y + m[9]  * z + m[13]) / w;
+    out[2] = (m[2] * x + m[6] * y + m[10] * z + m[14]) / w;
 }
 
 pub fn vis_sphere(m: &[f32; 16], cx: f32, cy: f32, cz: f32, r: f32) -> bool {

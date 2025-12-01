@@ -1,14 +1,15 @@
-import { vec3 as V, mat4 as M } from 'gl-matrix'
-import { REGION, ROW } from './utils'
+import { M, REGION, ROW, V } from './utils'
 
-const _fwd = V.fromValues(0, 0, -1)
 const _up = V.fromValues(0, 1, 0)
+const _fwd = V.fromValues(0, 0, -1)
 const _t0 = V.create()
 const _t1 = V.create()
 const _t2 = M.create()
 const _t3 = M.create()
 const clampToFace = (pos = 0, half = 0.5, sign = 0, base = Math.floor(pos)) => (sign > 0 ? Math.min(pos, base + 1 - half) : Math.max(pos, base + half))
-const lookAt = (eye = V.create(), pos = V.create(), face = V.create()) => V.scaleAndAdd(eye, pos, face, 10)
+const lookAt = (eye = V.create(), pos = V.create(), face = V.create()) => {
+        V.scaleAndAdd(eye, pos, face, 10)
+}
 const faceDir = (out = V.create(), yaw = 0, pitch = 0) => {
         M.identity(_t2)
         M.rotateY(_t2, _t2, yaw)

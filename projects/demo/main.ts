@@ -9,7 +9,7 @@ const SLOT = 16
 const REGION = 256
 const range = (n = 0) => [...Array(n).keys()]
 const importer = async (isDebug = false) => {
-        // if (isDebug) return await import ("voxelized-js/src")
+        if (isDebug) return await import('voxelized-js/src')
         const wasm = await import('voxelized-rs')
         // @ts-ignore for nodejs
         // if (typeof window !== 'undefined') await wasm.default()
@@ -88,7 +88,7 @@ const createMode = () => {
         return { tab, esc, current: () => mode }
 }
 const createViewer = async () => {
-        const { createCamera, createMesh, createQueues, createRegions, createSlots } = await importer()
+        const { createCamera, createMesh, createQueues, createRegions, createSlots } = await importer(false)
         let isReady = false
         let isLoading = false
         let ts = performance.now()
@@ -101,7 +101,7 @@ const createViewer = async () => {
         const node = createNode()
         const slots = createSlots(SLOT)
         const queues = createQueues(4, 1)
-        const regions = createRegions(mesh, cam, queues)
+        const regions = createRegions(mesh as any, cam as any, queues as any)
         try {
                 cam.update(1280 / 800) // Ensure MVP is valid for culling before first render.
                 regions.vis()

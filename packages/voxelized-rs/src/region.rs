@@ -148,7 +148,28 @@ impl Region {
             let a = js_sys::Uint8Array::from(v.vox.as_slice());
             return a.into();
         }
-        JsValue::UNDEFINED
+        let (img_exist, ctx_opt) = {
+            let st = self.st.borrow();
+            (st.img.is_some(), st.ctx.clone())
+        };
+        if !img_exist { return JsValue::UNDEFINED; }
+        let Some(ctx) = ctx_opt else { return JsValue::UNDEFINED };
+        let ox = ((ck & 3) * 1024 + ci * 64) as i32;
+        let oy = ((ck >> 2) * 1024 + cj * 64) as i32;
+        let imgd = match ctx.get_image_data(ox as f64, oy as f64, 64.0, 64.0) { Ok(v) => v, Err(_) => return JsValue::UNDEFINED };
+        let data = imgd.data();
+        let mut vox = vec![0u8;(U::CHUNK*U::CHUNK*U::CHUNK) as usize];
+        let mut p = 0usize;
+        for z in 0..U::CHUNK { for y in 0..U::CHUNK { for x in 0..U::CHUNK {
+            let px = ((z & 3) * 16 + x) as i32;
+            let py = ((z >> 2) * 16 + y) as i32;
+            let si = ((py * 64 + px) * 4) as u32 as usize;
+            let a = data.get(si + 3).unwrap_or(&0);
+            vox[p] = if *a > 0 { 1 } else { 0 };
+            p += 1;
+        }}}
+        self.st.borrow_mut().vox.insert(key, ChunkVox { vox: vox.clone() });
+        js_sys::Uint8Array::from(vox.as_slice()).into()
     }
     pub fn dispose(&mut self) -> bool {
         let mut st = self.st.borrow_mut();
@@ -164,6 +185,10 @@ impl Region {
         if self.st.borrow().img.is_some() {
             let v = self.st.borrow();
             return Promise::resolve(&JsValue::from(v.img.as_ref().unwrap()));
+        }
+        {
+            let mut st = self.st.borrow_mut();
+            st.pending = true;
         }
         let url = format!("{}/{}_{}.png", U::ATLAS_URL, self.i, self.j);
         let queues_obj: &Object = self.queues.unchecked_ref();
@@ -252,6 +277,7 @@ impl Regions {
                 }
                 id
             };
+            let mut prefetch_near: Vec<JsValue> = Vec::new();
             for di in 0..U::PREFETCH * 2 {
                 for dj in 0..U::PREFETCH * 2 {
                     let mut i = di - U::PREFETCH;
@@ -283,14 +309,17 @@ impl Regions {
                         .unwrap_or(0.0) as f32;
                     let mvp_val = Reflect::get(&self.cam, &JsValue::from_str("MVP")).unwrap();
                     let vp = mvp_val.unchecked_into::<Float32Array>();
-                    if !U::culling(&vp, x, y, z) && d > (U::SLOT as f32) {
-                        continue;
+                    if !U::culling(&vp, x, y, z) && d > (U::SLOT as f32) { continue; }
+                    if d <= (U::SLOT as f32) {
+                        prefetch_near.push(r.clone());
                     }
-                    if !U::culling(&vp, x, y, z) {
-                        continue;
-                    }
+                    if !U::culling(&vp, x, y, z) { continue; }
                     list.push((i, j, d, id));
                 }
+            }
+            for r in prefetch_near {
+                let prefetch: Function = Reflect::get(&r, &JsValue::from_str("prefetch")).unwrap().unchecked_into();
+                let _ = prefetch.call1(&r, &JsValue::from_f64(0.0));
             }
         }
         list.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
@@ -298,6 +327,8 @@ impl Regions {
         let m = self.regions.borrow();
         for (_, _, _, id) in list.into_iter().take(U::SLOT as usize) {
             let r = m.get(&id).unwrap();
+            let pf: Function = Reflect::get(r, &JsValue::from_str("prefetch")).unwrap().unchecked_into();
+            let _ = pf.call1(r, &JsValue::from_f64(2.0));
             let _ = set.add(r);
         }
         set
