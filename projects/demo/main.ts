@@ -1,4 +1,4 @@
-import { createCamera, createMesh, createQueues, createRegions, createSlots } from 'voxelized-js'
+import { createCamera, createMesh, createQueues, createRegions, createSlots } from 'voxelized-js/src'
 import { attribute, float, Fn, If, instance, int, ivec2, mat4, texelFetch, texture2D, uniform, vec3, vec4, vertexStage } from 'glre/src/node'
 import { createGL, type GL } from 'glre/src'
 import type { Float, IVec2, IVec3, Vec3 } from 'glre/src/node'
@@ -79,8 +79,9 @@ const createMode = () => {
                 ;[_mode, mode] = [mode, _mode]
                 return mode
         }
-        return { tab, esc, current: () => mode }
+        return { tab, esc }
 }
+
 const createViewer = () => {
         let isReady = false
         let isLoading = false
@@ -232,4 +233,5 @@ const App = () => {
         gl.mount()
 }
 
-document.addEventListener('DOMContentLoaded', App)
+App()
+// document.addEventListener('DOMContentLoaded', App)

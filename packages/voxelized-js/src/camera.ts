@@ -46,6 +46,13 @@ const perspective = (MVP = M.create(), pos = V.create(), eye = V.create(), aspec
         M.multiply(MVP, _t2, _t3)
 }
 
+const turnRate = (mode = 0) => {
+        if (mode === -1) return 0
+        if (mode === 0) return 1.5
+        if (mode === 1) return 1
+        return 0
+}
+
 export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mode = -1, X = 0, Y = 0, Z = 0, DASH = 3, MOVE = 12, JUMP = 12, GROUND = 0, SIZE = [0.8, 1.8, 0.8], GRAVITY = -50, TURN = 1 / 250 }) => {
         let dash = 1
         let scroll = 0
@@ -70,7 +77,7 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
                 if (mode === 1 && isGround && isPress) return void (vel[1] = JUMP)
         }
         const turn = (delta = [0, 0]) => {
-                const r = mode === 1 ? 1 : 0.1
+                const r = turnRate(mode)
                 yaw += delta[0] * r * TURN
                 pitch += delta[1] * r * TURN
                 pitch = Math.min(pitch, Math.PI / 2 - 0.01)
