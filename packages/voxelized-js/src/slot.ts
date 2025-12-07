@@ -60,13 +60,19 @@ const createSlot = (index = 0) => {
                 region.slot = index
                 reset()
         }
+        const bind = (c: WebGL2RenderingContext) => {
+                if (!tex) return false
+                c.activeTexture(c.TEXTURE0 + index)
+                c.bindTexture(c.TEXTURE_2D, tex)
+                return true
+        }
         const release = () => {
                 if (!region) return
                 region.slot = -1
                 region = undefined as unknown as Region
                 reset()
         }
-        return { ready, release, set, ctx: () => ctx, isReady: () => isReady, region: () => region }
+        return { ready, bind, release, set, ctx: () => ctx, isReady: () => isReady, region: () => region }
 }
 
 export const createSlots = (size = 16) => {
@@ -109,5 +115,8 @@ export const createSlots = (size = 16) => {
                 }
                 return cursor >= pending.length
         }
-        return { begin, step }
+        const bind = (c: WebGL2RenderingContext) => {
+                for (let i = 0; i < owner.length; i++) owner[i].bind(c)
+        }
+        return { begin, step, bind }
 }
