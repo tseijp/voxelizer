@@ -1,7 +1,7 @@
 import { CHUNK, chunkId } from './utils'
 import { greedyMesh as greedyMesh2 } from 'voxelized-rs'
 
-const _greedyMesh = (src: Uint8Array, size = 1, pos: number[] = [], scl: number[] = [], count = 0) => {
+const greedyMesh = (src: Uint8Array, size = 1, pos: number[] = [], scl: number[] = [], count = 0) => {
         const data = new Uint8Array(src)
         const index = (x = 0, y = 0, z = 0) => x + (y + z * size) * size
         const isHitWidth = (x = 0, y = 0, z = 0) => {
