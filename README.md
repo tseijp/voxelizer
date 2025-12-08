@@ -278,8 +278,6 @@ High-detail 3D models with color information are only available for extremely li
 
 <img src="./3.jpg" />
 
-ref: [maps.gsi.go.jp](https://maps.gsi.go.jp/#18/35.662652/139.634084/&base=ort&ls=ort&disp=1&vs=c1g1j0h0k0l0u0t0z0r0s0m0f0)
-
 ---
 
 <details>
@@ -310,6 +308,8 @@ Aerial photographs contain shadows cast by buildings at the time of capture, whi
 </details>
 
 <img src="./4.jpg" />
+
+ref: [maps.gsi.go.jp](https://maps.gsi.go.jp/#18/35.662652/139.634084/&base=ort&ls=ort&disp=1&vs=c1g1j0h0k0l0u0t0z0r0s0m0f0)
 
 ---
 
