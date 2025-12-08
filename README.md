@@ -169,14 +169,14 @@ Distributed 3D models typically require thousands of individual draw calls for d
 
 </details>
 
+<img src="./1.jpg"  />
+
 ref: [youtube.com](https://www.youtube.com/watch?v=qnGoGq7DWMc)
 
 ---
 
 <details>
 <summary>
-
-<img src="./1.jpg"  />
 
 ### Converting from 3D models to image data for partial delivery and cache utilization, enabling fast startup
 
