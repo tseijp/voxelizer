@@ -5,7 +5,7 @@ export const CHUNK = 16
 export const CACHE = 32
 export const REGION = 256
 export const PREFETCH = 16
-export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v1` // `http://localhost:5173/logs`
+export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3` // `http://localhost:5173/logs`
 export const scoped = (i = 0, j = 0) => SCOPE.x0 <= i && i <= SCOPE.x1 && SCOPE.y0 <= j && j <= SCOPE.y1
 export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => ({ x: REGION * (i - SCOPE.x0), y: 0, z: REGION * (SCOPE.y1 - j) })
 export const posOf = (pos = V.create()) => ({ i: SCOPE.x0 + Math.floor(pos[0] / REGION), j: SCOPE.y1 - Math.floor(pos[2] / REGION) })

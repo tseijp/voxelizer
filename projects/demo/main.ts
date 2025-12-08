@@ -69,14 +69,15 @@ const createMode = () => {
         let mode = -1 // 0 is creative
         let _mode = 1 // last non-pause mode
         const tab = () => {
+                if (mode === 2) return mode // paused: keep mode on tab
                 if (mode === 0) return (mode = _mode = 1)
                 if (mode === 1) return (mode = _mode = 0)
-                return mode
+                return (_mode = mode)
         }
         const esc = () => {
                 if (mode === -1) return (mode = _mode = 1)
                 if (mode === 2) return (mode = _mode)
-                ;[_mode, mode] = [mode, _mode]
+                ;[_mode, mode] = [mode, 2]
                 return mode
         }
         return { tab, esc }
@@ -90,6 +91,9 @@ const createViewer = () => {
         let dt = 0
         let pt2 = ts - 200
         const cam = createCamera({ X: (Math.random() * 0.5 + 0.5) * ROW * REGION, Y: 720, Z: (REGION * (SCOPE.y1 - SCOPE.y0 + 1)) / 2 })
+        // const cam = createCamera({ X: 1 * ROW * REGION, Y: 400, Z: (REGION * (SCOPE.y1 - SCOPE.y0 + 1)) / 2, MOVE: 60, pitch: Math.PI * -0.25 })
+        // const cam = createCamera({ X: 52 * REGION, Y: 400, Z: REGION * 2.5 })
+        // const cam = createCamera({ X: 51 * REGION, Y: 720, Z: REGION * 3 })
         const mesh = createMesh()
         const mode = createMode()
         const node = createNode()
@@ -228,7 +232,7 @@ const App = () => {
                         }
                 },
         })
-        Object.assign(canvas.style, { top: 0, left: 0, position: 'fixed', width: '100%', height: '100%' })
+        Object.assign(canvas.style, { top: 0, left: 0, position: 'fixed', width: '100%', height: '100%', background: '#a58e84' })
         document.body.appendChild(canvas)
         gl.mount()
 }
