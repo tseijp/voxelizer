@@ -1,6 +1,7 @@
-import { createCamera, createMesh, createQueues, createRegions, createSlots } from 'voxelized-js/src'
-import { attribute, float, Fn, If, instance, int, ivec2, mat4, texelFetch, texture2D, uniform, vec3, vec4, vertexStage } from 'glre/src/node'
-import { createGL, type GL } from 'glre/src'
+import { createGL } from 'glre/src'
+import { attribute, float, Fn, If, instance, int, ivec2, mat4, Scope, texelFetch, texture2D, uniform, varying, vec3, vec4 } from 'glre/src/node'
+import { createCamera, createMesh, createQueues, createRegions, createSlots } from 'voxelized-js'
+import type { GL } from 'glre/src'
 import type { Float, IVec2, IVec3, Vec3 } from 'glre/src/node'
 
 const SCOPE = { x0: 28, x1: 123, y0: 75, y1: 79 }
@@ -18,6 +19,7 @@ const createNode = () => {
         const scl = instance<'vec3'>(vec3(), 'scl')
         const pos = instance<'vec3'>(vec3(), 'pos')
         const aid = instance<'float'>(float(), 'aid')
+        const vCenter = varying<'vec3'>(vec3(), 'vCenter')
         const atlas = Fn(([p]: [IVec3]) => {
                 const ci = p.div(int(16)).mul(int(16)).toVar('ci') // left shift like k & 3
                 const lp = p.sub(ci).toVar('lp') // ................ right shift like k >> 2
@@ -38,18 +40,10 @@ const createNode = () => {
                 })
                 return t
         })
-        const center = Fn(([vertex, scl, pos, n]: [Vec3, Vec3, Vec3, Vec3]) => {
-                return vertex.mul(scl).add(pos).sub(n.sign().mul(0.5)).floor()
-        })
         const diffuse = Fn(([n]: [Vec3]) => {
                 return vec3(-0.33, 0.77, 0.55).normalize().dot(n).mul(0.5).add(0.5)
         })
-        const fs = Fn(([p, d, i]: [IVec3, Float, Float]) => {
-                const uv = atlas(p).toVar('uv')
-                const rgb = pick(i, uv).rgb.mul(d).toVar('rgb')
-                return vec4(rgb, 1)
-        })
-        const vs = Fn(([pos, scl, aid]: [Vec3, Vec3, Float]) => {
+        const vert = Scope(() => {
                 const off = vec3(0, 0, 0).toVar('off')
                 range(SLOT).forEach((i) => {
                         If(aid.equal(i), () => {
@@ -58,10 +52,18 @@ const createNode = () => {
                 })
                 const local = vertex.mul(scl).add(pos)
                 const world = off.add(local)
+                const center = local.sub(normal.sign().mul(0.5)).floor()
+                vCenter.assign(center)
                 return iMVP.mul(vec4(world, 1))
         })
-        const frag = fs(vertexStage(center(vertex, scl, pos, normal)).toIVec3(), vertexStage(diffuse(normal)), vertexStage(aid))
-        const vert = vs(pos, scl, aid)
+        const frag = Scope(() => {
+                const p = vCenter.toIVec3()
+                const d = varying(diffuse(normal))
+                const i = varying(aid)
+                const uv = atlas(p).toVar('uv')
+                const rgb = pick(i, uv).rgb.mul(d).toVar('rgb')
+                return vec4(rgb, 1)
+        })
         return { vert, frag, iMVP }
 }
 
@@ -91,9 +93,6 @@ const createViewer = () => {
         let dt = 0
         let pt2 = ts - 200
         const cam = createCamera({ X: (Math.random() * 0.5 + 0.5) * ROW * REGION, Y: 720, Z: (REGION * (SCOPE.y1 - SCOPE.y0 + 1)) / 2 })
-        // const cam = createCamera({ X: 1 * ROW * REGION, Y: 400, Z: (REGION * (SCOPE.y1 - SCOPE.y0 + 1)) / 2, MOVE: 60, pitch: Math.PI * -0.25 })
-        // const cam = createCamera({ X: 52 * REGION, Y: 400, Z: REGION * 2.5 })
-        // const cam = createCamera({ X: 51 * REGION, Y: 720, Z: REGION * 3 })
         const mesh = createMesh()
         const mode = createMode()
         const node = createNode()
@@ -104,10 +103,65 @@ const createViewer = () => {
                 cam.update(1280 / 800) // Ensure MVP is valid for culling before first render.
                 regions.vis()
         } catch {}
+
+        const press = (isPress = false, e: KeyboardEvent) => {
+                const k = e.code
+                if (k === 'KeyW') cam.asdw(1, isPress ? 1 : 0)
+                if (k === 'KeyS') cam.asdw(1, isPress ? -1 : 0)
+                if (k === 'KeyA') cam.asdw(2, isPress ? 1 : 0)
+                if (k === 'KeyD') cam.asdw(2, isPress ? -1 : 0)
+                if (k === 'Space') cam.space(isPress)
+                if (k === 'ArrowUp') cam.asdw(1, isPress ? 1 : 0)
+                if (k === 'ArrowDown') cam.asdw(1, isPress ? -1 : 0)
+                if (k === 'ArrowLeft') cam.asdw(2, isPress ? 1 : 0)
+                if (k === 'ArrowRight') cam.asdw(2, isPress ? -1 : 0)
+                if (k === 'MetaLeft') cam.shift(isPress)
+                if (k === 'MetaRight') cam.shift(isPress)
+                if (k === 'ShiftLeft') cam.shift(isPress)
+                if (k === 'ShiftRight') cam.shift(isPress)
+                if (k === 'ControlLeft') cam.shift(isPress)
+                if (k === 'ControlRight') cam.shift(isPress)
+                if (k === 'Tab' && isPress) {
+                        e.preventDefault()
+                        cam.mode(mode.tab())
+                }
+        }
+
+        let lastLockTime = 0
+
+        const onLock = () => {
+                lastLockTime = performance.now()
+                cam.mode(mode.esc())
+        }
+
+        const mousemove = (drag: Drag) => {
+                if (drag.device === 'touch') return // @ts-ignore
+                cam.turn([-drag.event.movementX, -drag.event.movementY])
+        }
+
+        const mousedown = (drag: Drag) => {
+                const tryLock = (trial = 0) => {
+                        if (trial > 20) return
+                        if (performance.now() - lastLockTime < 1300) return setTimeout(() => tryLock(trial + 1), 100)
+                        try {
+                                drag.target.requestPointerLock()
+                        } catch (e) {
+                                console.error('pointer lock failed:', e)
+                        }
+                }
+                if (drag.device === 'touch') return
+                if ('requestPointerLock' in drag.target) tryLock()
+        }
+
+        const onKeyUp = (e: KeyboardEvent) => press(false, e)
+
+        const onKeyDown = (e: KeyboardEvent) => press(true, e)
+
         const resize = (gl: GL) => {
                 cam.update(gl.size[0] / gl.size[1])
                 node.iMVP.value = [...cam.MVP]
         }
+
         const render = (gl: GL) => {
                 pt = ts
                 ts = performance.now()
@@ -119,8 +173,6 @@ const createViewer = () => {
                         cam.update(gl.size[0] / gl.size[1])
                         node.iMVP.value = [...cam.MVP]
                 }
-                const c = gl.webgl.context as WebGL2RenderingContext
-                const pg = gl.webgl.program as WebGLProgram
                 if (!isLoading)
                         if (ts - pt2 >= 100) {
                                 pt2 = ts
@@ -129,13 +181,32 @@ const createViewer = () => {
                                 isLoading = true
                         }
                 if (isLoading)
-                        if (slots.step(c, pg, 6)) {
+                        if (slots.step(gl.gl, gl.program, 6)) {
                                 mesh.commit()
                                 isLoading = false
                         }
-                gl.instanceCount = mesh.draw(c, pg)
+                gl.instanceCount = mesh.draw(gl.gl, gl.program)
         }
-        return { mode, node, cam, render, resize, pt: 0 }
+
+        const mount = (el: HTMLCanvasElement) => {
+                if (!el) return
+                const isSP = window.innerWidth <= 768
+                if (isSP) return
+                window.addEventListener('keyup', onKeyUp)
+                window.addEventListener('keydown', onKeyDown)
+                document.addEventListener('pointerlockchange', onLock)
+        }
+
+        const clean = (el: HTMLCanvasElement) => {
+                if (!el) return
+                const isSP = window.innerWidth <= 768
+                if (isSP) return
+                window.removeEventListener('keyup', onKeyUp)
+                window.removeEventListener('keydown', onKeyDown)
+                document.removeEventListener('pointerlockchange', onLock)
+        }
+
+        return { mode, node, cam, render, resize, mount, clean, mousedown, mousemove, pt: 0 }
 }
 
 const App = () => {
@@ -143,12 +214,11 @@ const App = () => {
         const viewer = createViewer()
         const gl = createGL({
                 precision: 'highp',
-                el: canvas,
                 // wireframe: true,
                 // isDebug: true,
                 isWebGL: true,
                 isDepth: true,
-                count: 36, // Total number of cube triangles vertices
+                triangleCount: 12, // Total number of cube triangles
                 instanceCount: 1, // count of instanced mesh in initial state
                 vert: viewer.node.vert,
                 frag: viewer.node.frag,
@@ -159,77 +229,16 @@ const App = () => {
                         viewer.resize(gl)
                 },
                 mount() {
-                        const el = gl.el
-                        if (!el) return
-                        const isSP = window.innerWidth <= 768
-                        const press = (isPress = false, e: KeyboardEvent) => {
-                                const k = e.code
-                                if (k === 'KeyW') viewer.cam.asdw(1, isPress ? 1 : 0)
-                                if (k === 'KeyS') viewer.cam.asdw(1, isPress ? -1 : 0)
-                                if (k === 'KeyA') viewer.cam.asdw(2, isPress ? 1 : 0)
-                                if (k === 'KeyD') viewer.cam.asdw(2, isPress ? -1 : 0)
-                                if (k === 'Space') viewer.cam.space(isPress)
-                                if (k === 'ArrowUp') viewer.cam.asdw(1, isPress ? 1 : 0)
-                                if (k === 'ArrowDown') viewer.cam.asdw(1, isPress ? -1 : 0)
-                                if (k === 'ArrowLeft') viewer.cam.asdw(2, isPress ? 1 : 0)
-                                if (k === 'ArrowRight') viewer.cam.asdw(2, isPress ? -1 : 0)
-                                if (k === 'MetaLeft') viewer.cam.shift(isPress)
-                                if (k === 'MetaRight') viewer.cam.shift(isPress)
-                                if (k === 'ShiftLeft') viewer.cam.shift(isPress)
-                                if (k === 'ShiftRight') viewer.cam.shift(isPress)
-                                if (k === 'ControlLeft') viewer.cam.shift(isPress)
-                                if (k === 'ControlRight') viewer.cam.shift(isPress)
-                                if (k === 'Tab' && isPress) {
-                                        e.preventDefault()
-                                        viewer.cam.mode(viewer.mode.tab())
-                                }
-                        }
-                        const onMove = (e: any) => {
-                                viewer.cam.turn([-e.movementX, -e.movementY])
-                        }
-                        let px = 0
-                        let py = 0
-                        const touchXY = (e: TouchEvent) => {
-                                if (e.touches.length !== 1) return [0, 0]
-                                e.preventDefault()
-                                const touch = e.touches[0]
-                                return [touch.clientX, touch.clientY]
-                        }
-                        const onTouchStart = (e: TouchEvent) => {
-                                ;[px, py] = touchXY(e)
-                        }
-                        const onTouch = (e: TouchEvent) => {
-                                const [x, y] = touchXY(e)
-                                const dx = x - px
-                                const dy = y - py
-                                px = x
-                                py = y
-                                viewer.cam.turn([dx * 8, dy * 3])
-                        }
-                        const onLock = () => {
-                                viewer.pt = performance.now()
-                                viewer.cam.mode(viewer.mode.esc())
-                        }
-                        const onDown = (trial = 0) => {
-                                if (!el) return
-                                if (trial > 20) return
-                                if (performance.now() - viewer.pt < 1300) return setTimeout(() => onDown(trial + 1), 100) // if the user requests within 1250 ms of escaping, the following error occurs: `ERROR: The user has exited the lock before this request was completed.`
-                                try {
-                                        document.body.requestPointerLock()
-                                } finally {
-                                }
-                        }
-                        if (isSP) {
-                                document.addEventListener('touchstart', onTouchStart, { passive: false })
-                                document.addEventListener('touchmove', onTouch, { passive: false })
-                                document.addEventListener('mousemove', onMove, { passive: false })
-                        } else {
-                                if (el) el.addEventListener('mousedown', onDown.bind(null, 0))
-                                document.addEventListener('mousemove', onMove)
-                                window.addEventListener('keyup', press.bind(null, false))
-                                window.addEventListener('keydown', press.bind(null, true))
-                                document.addEventListener('pointerlockchange', onLock)
-                        }
+                        viewer.mount(gl.el)
+                },
+                clean() {
+                        viewer.clean(gl.el)
+                },
+                dragStart(drag: any) {
+                        viewer.mousedown(drag)
+                },
+                dragging(drag: any) {
+                        viewer.mousemove(drag)
                 },
         })
         Object.assign(canvas.style, { top: 0, left: 0, position: 'fixed', width: '100%', height: '100%', background: '#a58e84' })

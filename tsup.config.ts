@@ -15,7 +15,7 @@ const BUILD_TARGETS: BuildTarget[] = [
                 // https://github.com/egoist/tsup/issues/618
                 dts: {
                         compilerOptions: {
-                                moduleResolution: 'node',
+                                moduleResolution: 'bundler',
                         },
                 },
         },
