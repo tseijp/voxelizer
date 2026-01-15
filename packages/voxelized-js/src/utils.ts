@@ -1,5 +1,7 @@
 // export const SCOPE = { x0: 28, x1: 123, y0: 75, y1: 79 }
-export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 }
+// export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 }
+// export const SCOPE = { x0: 116415, x1: 116415, y0: 51624, y1: 51624 }
+export const SCOPE = { x0: 116413, x1: 116417, y0: 51620, y1: 51624 }
 export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
 export const CHUNK = 16
@@ -16,8 +18,6 @@ export const regionId = (i = 0, j = 0) => i + ROW * j
 export const culling = (VP = M.create(), rx = 0, ry = 0, rz = 0) => visSphere(VP as number[], rx + 128, ry + 128, rz + 128, Math.sqrt(256 * 256 * 3) * 0.5)
 
 export const scoped = (i = 0, j = 0) => {
-        if (i === 116415) if (j === 51623) return true
-        return false
         // if (i === 78) if (j === 75) return false
         // if (i === 78) if (j === 74) return true
         // if (i === 78) if (j === 73) return true

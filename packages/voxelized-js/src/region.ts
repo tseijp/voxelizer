@@ -28,7 +28,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
         const prefetch = (priority = 0) => {
                 if (isDisposed || img) return Promise.resolve(img)
                 if (!pending) {
-                        const { promise, task } = queues.schedule(() => createImage(`${ATLAS_URL}/${i}_${j}.png`), priority)
+                        const { promise, task } = queues.schedule(() => createImage(`${ATLAS_URL}/17_${i}_${j}.png`), priority)
                         pending = promise.then((res) => {
                                 if (isDisposed) return res
                                 return (img = res)
