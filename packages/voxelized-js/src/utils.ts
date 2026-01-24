@@ -1,17 +1,20 @@
 // export const SCOPE = { x0: 28, x1: 123, y0: 75, y1: 79 }
-// export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 }
+
+export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 }
+
 // export const SCOPE = { x0: 116415, x1: 116415, y0: 51624, y1: 51624 }
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51620, y1: 51624 }
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51615, y1: 51624 }
 
-export const SCOPE = { x0: 116358, x1: 116466, y0: 51619, y1: 51627 }
+// export const SCOPE = { x0: 116358, x1: 116466, y0: 51619, y1: 51627 }
+
 export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
 export const CACHE = 32
 export const REGION = 256
 export const PREFETCH = 16
 export const ATLAS_URL = 'http://localhost:5500/logs/v4'
-// export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3` // `http://localhost:5173/logs`
+// export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3`
 
 export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => ({ x: REGION * (i - SCOPE.x0), y: 0, z: REGION * (j - SCOPE.y0) })
 export const posOf = (pos = V.create()) => ({ i: SCOPE.x0 + Math.floor(pos[0] / REGION), j: SCOPE.y0 + Math.floor(pos[2] / REGION) })

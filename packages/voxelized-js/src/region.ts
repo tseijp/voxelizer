@@ -24,11 +24,11 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 return pending
         }
         const image = async (priority = 0) => img || (await prefetch(priority))
-        const build = (_ctx: CanvasRenderingContext2D, index = 0) => {
+        const build = (_ctx: CanvasRenderingContext2D, index = 0, width = 4096, height = 4096) => {
                 if (isMeshed || isDisposed) return true
                 ctx = _ctx
-                const data = _ctx.getImageData(0, 0, 4096, 4096).data as Uint8ClampedArray
-                const built = buildMeshFromAtlas(data, 4096, 4096)
+                const data = _ctx.getImageData(0, 0, width, height).data as Uint8ClampedArray
+                const built = buildMeshFromAtlas(data, width, height)
                 const { x, y, z } = offOf(i, j)
                 mesh.merge(built, index, x, y, z)
                 isMeshed = true

@@ -15,7 +15,7 @@ const createSlot = (index = 0) => {
         }
         const assign = (c: WebGL2RenderingContext, pg: WebGLProgram, img: HTMLImageElement) => {
                 ctx.clearRect(0, 0, 4096, 4096)
-                ctx.drawImage(img, 0, 0, 4096, 4096)
+                ctx.drawImage(img, 0, 0, img.width, img.height)
                 if (!atlas) atlas = c.getUniformLocation(pg, `iAtlas${index}`) as WebGLUniformLocation
                 if (!offset) offset = c.getUniformLocation(pg, `iOffset${index}`) as WebGLUniformLocation
                 if (!atlas || !offset || !region) return false
