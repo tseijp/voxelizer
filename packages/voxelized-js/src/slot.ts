@@ -97,6 +97,7 @@ export const createSlots = (size = 16) => {
                 _release((keep = next))
                 cursor = 0
                 pending = Array.from(keep)
+                pending.forEach((r) => r.resetMesh())
         }
         const step = (c: WebGL2RenderingContext, pg: WebGLProgram, budget = 6) => {
                 const start = performance.now()

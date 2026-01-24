@@ -1,8 +1,7 @@
 // export const SCOPE = { x0: 28, x1: 123, y0: 75, y1: 79 }
 
-export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 }
-
-// export const SCOPE = { x0: 116415, x1: 116415, y0: 51624, y1: 51624 }
+// export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 }
+export const SCOPE = { x0: 116414, x1: 116416, y0: 51622, y1: 51624 }
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51620, y1: 51624 }
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51615, y1: 51624 }
 

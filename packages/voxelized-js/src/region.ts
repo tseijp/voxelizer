@@ -53,5 +53,6 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 occ = undefined as unknown as Uint8Array
                 return true
         }
-        return { id: regionId(i, j), ...offOf(i, j), i, j, image, build, pick, dispose, prefetch, ctx: () => ctx, peek: () => img, fetching: () => !!pending && !img, slot: -1 }
+        const resetMesh = () => void (isMeshed = false)
+        return { id: regionId(i, j), ...offOf(i, j), i, j, image, build, pick, dispose, prefetch, ctx: () => ctx, peek: () => img, fetching: () => !!pending && !img, slot: -1, resetMesh }
 }
