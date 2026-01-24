@@ -1,14 +1,16 @@
 // export const SCOPE = { x0: 28, x1: 123, y0: 75, y1: 79 }
 // export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 }
 // export const SCOPE = { x0: 116415, x1: 116415, y0: 51624, y1: 51624 }
-export const SCOPE = { x0: 116413, x1: 116417, y0: 51620, y1: 51624 }
+// export const SCOPE = { x0: 116413, x1: 116417, y0: 51620, y1: 51624 }
+// export const SCOPE = { x0: 116413, x1: 116417, y0: 51615, y1: 51624 }
+export const SCOPE = { x0: 116358, x1: 116466, y0: 51619, y1: 51627 }
 export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
 export const CHUNK = 16
 export const CACHE = 32
 export const REGION = 256
 export const PREFETCH = 16
-export const ATLAS_URL = 'http://localhost:5500/logs/v2'
+export const ATLAS_URL = 'http://localhost:5500/logs/v4'
 // export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3` // `http://localhost:5173/logs`
 export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => ({ x: REGION * (i - SCOPE.x0), y: 0, z: REGION * (j - SCOPE.y0) })
 export const posOf = (pos = V.create()) => ({ i: SCOPE.x0 + Math.floor(pos[0] / REGION), j: SCOPE.y0 + Math.floor(pos[2] / REGION) })
@@ -143,16 +145,16 @@ export const M = {
                 return o
         },
         rotateX: (out: number[], a: number[], rad: number) => {
-                const s = Math.sin(rad),
-                        c = Math.cos(rad)
-                const a10 = a[4],
-                        a11 = a[5],
-                        a12 = a[6],
-                        a13 = a[7]
-                const a20 = a[8],
-                        a21 = a[9],
-                        a22 = a[10],
-                        a23 = a[11]
+                const s = Math.sin(rad)
+                const c = Math.cos(rad)
+                const a10 = a[4]
+                const a11 = a[5]
+                const a12 = a[6]
+                const a13 = a[7]
+                const a20 = a[8]
+                const a21 = a[9]
+                const a22 = a[10]
+                const a23 = a[11]
                 if (a !== out) {
                         out[0] = a[0]
                         out[1] = a[1]
@@ -180,10 +182,10 @@ export const M = {
                 const a01 = a[1]
                 const a02 = a[2]
                 const a03 = a[3]
-                const a20 = a[8],
-                        a21 = a[9],
-                        a22 = a[10],
-                        a23 = a[11]
+                const a20 = a[8]
+                const a21 = a[9]
+                const a22 = a[10]
+                const a23 = a[11]
                 if (a !== out) {
                         out[4] = a[4]
                         out[5] = a[5]

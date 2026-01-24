@@ -10,24 +10,24 @@ export const createMesh = () => {
         let _scl = [] as number[]
         let _aid = [] as number[]
         let isReady = false
-        const buf = {} as Record<string, WebGLBuffer>
-        const attr = (c: WebGL2RenderingContext, pg: WebGLProgram, data: number[], key = 'pos', size = 3) => {
+        const _buf = {} as Record<string, WebGLBuffer>
+        const _attr = (c: WebGL2RenderingContext, pg: WebGLProgram, data: number[], key = 'pos', size = 3) => {
                 const loc = c.getAttribLocation(pg, key)
                 const array = new Float32Array(data)
-                const buffer = (buf[key] = buf[key] || c.createBuffer())
+                const buffer = (_buf[key] = _buf[key] || c.createBuffer())
                 c.bindBuffer(c.ARRAY_BUFFER, buffer)
-                if (!buf[key + ':init']) {
+                if (!_buf[key + ':init']) {
                         c.bufferData(c.ARRAY_BUFFER, array, c.DYNAMIC_DRAW)
                         c.enableVertexAttribArray(loc)
                         c.vertexAttribPointer(loc, size, c.FLOAT, false, 0, 0)
                         c.vertexAttribDivisor(loc, 1)
-                        buf[key + ':init'] = 1
-                        buf[key + ':len'] = array.length
+                        _buf[key + ':init'] = 1
+                        _buf[key + ':len'] = array.length
                         return
                 }
-                if (buf[key + ':len'] !== array.length) {
+                if (_buf[key + ':len'] !== array.length) {
                         c.bufferData(c.ARRAY_BUFFER, array, c.DYNAMIC_DRAW)
-                        buf[key + ':len'] = array.length
+                        _buf[key + ':len'] = array.length
                         return
                 }
                 c.bufferSubData(c.ARRAY_BUFFER, 0, array)
@@ -45,9 +45,9 @@ export const createMesh = () => {
                         aid.push(0)
                         count = 1
                 }
-                attr(c, pg, scl, 'scl', 3)
-                attr(c, pg, pos, 'pos', 3)
-                attr(c, pg, aid, 'aid', 1)
+                _attr(c, pg, scl, 'scl', 3)
+                _attr(c, pg, pos, 'pos', 3)
+                _attr(c, pg, aid, 'aid', 1)
                 return count
         }
         const reset = () => {
