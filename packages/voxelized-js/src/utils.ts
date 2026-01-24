@@ -3,19 +3,19 @@
 // export const SCOPE = { x0: 116415, x1: 116415, y0: 51624, y1: 51624 }
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51620, y1: 51624 }
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51615, y1: 51624 }
+
 export const SCOPE = { x0: 116358, x1: 116466, y0: 51619, y1: 51627 }
 export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
-export const CHUNK = 16
 export const CACHE = 32
 export const REGION = 256
 export const PREFETCH = 16
 export const ATLAS_URL = 'http://localhost:5500/logs/v4'
 // export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3` // `http://localhost:5173/logs`
+
 export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => ({ x: REGION * (i - SCOPE.x0), y: 0, z: REGION * (j - SCOPE.y0) })
 export const posOf = (pos = V.create()) => ({ i: SCOPE.x0 + Math.floor(pos[0] / REGION), j: SCOPE.y0 + Math.floor(pos[2] / REGION) })
 export const range = (n = 0) => [...Array(n).keys()]
-export const chunkId = (i = 0, j = 0, k = 0) => i + j * CHUNK + k * CHUNK * CHUNK
 export const regionId = (i = 0, j = 0) => i + ROW * j
 export const culling = (VP = M.create(), rx = 0, ry = 0, rz = 0) => visSphere(VP as number[], rx + 128, ry + 128, rz + 128, Math.sqrt(256 * 256 * 3) * 0.5)
 
@@ -29,6 +29,103 @@ export const scoped = (i = 0, j = 0) => {
         if (j < SCOPE.y0) return false
         if (j > SCOPE.y1) return false
         return true
+}
+
+export const xyz2m = (x: number, y: number, z: number) => {
+        let px = x >>> 0
+        let py = y >>> 0
+        let pz = z >>> 0
+        px = (px | (px << 16)) & 0xff0000ff
+        py = (py | (py << 16)) & 0xff0000ff
+        pz = (pz | (pz << 16)) & 0xff0000ff
+        px = (px | (px << 8)) & 0x0300f00f
+        py = (py | (py << 8)) & 0x0300f00f
+        pz = (pz | (pz << 8)) & 0x0300f00f
+        px = (px | (px << 4)) & 0x030c30c3
+        py = (py | (py << 4)) & 0x030c30c3
+        pz = (pz | (pz << 4)) & 0x030c30c3
+        px = (px | (px << 2)) & 0x09249249
+        py = (py | (py << 2)) & 0x09249249
+        pz = (pz | (pz << 2)) & 0x09249249
+        return (px | (py << 1) | (pz << 2)) >>> 0
+}
+
+export const m2xyz = (morton: number): [number, number, number] => {
+        let px = morton >>> 0
+        let py = (morton >>> 1) >>> 0
+        let pz = (morton >>> 2) >>> 0
+        px = px & 0x09249249
+        py = py & 0x09249249
+        pz = pz & 0x09249249
+        px = (px | (px >>> 2)) & 0x030c30c3
+        py = (py | (py >>> 2)) & 0x030c30c3
+        pz = (pz | (pz >>> 2)) & 0x030c30c3
+        px = (px | (px >>> 4)) & 0x0300f00f
+        py = (py | (py >>> 4)) & 0x0300f00f
+        pz = (pz | (pz >>> 4)) & 0x0300f00f
+        px = (px | (px >>> 8)) & 0xff0000ff
+        py = (py | (py >>> 8)) & 0xff0000ff
+        pz = (pz | (pz >>> 8)) & 0xff0000ff
+        px = (px | (px >>> 16)) & 0x000003ff
+        py = (py | (py >>> 16)) & 0x000003ff
+        pz = (pz | (pz >>> 16)) & 0x000003ff
+        return [px, py, pz]
+}
+
+const _m2uv = (morton: number): [number, number] => {
+        let px = morton >>> 0
+        let py = (morton >>> 1) >>> 0
+        px = px & 0x55555555
+        py = py & 0x55555555
+        px = (px | (px >>> 1)) & 0x33333333
+        py = (py | (py >>> 1)) & 0x33333333
+        px = (px | (px >>> 2)) & 0x0f0f0f0f
+        py = (py | (py >>> 2)) & 0x0f0f0f0f
+        px = (px | (px >>> 4)) & 0x00ff00ff
+        py = (py | (py >>> 4)) & 0x00ff00ff
+        px = (px | (px >>> 8)) & 0x0000ffff
+        py = (py | (py >>> 8)) & 0x0000ffff
+        return [px, py]
+}
+
+export const m2uv = (id: number): [number, number] => {
+        if (id < 16777216) return _m2uv(id)
+        const [x, y] = _m2uv(id - 16777216)
+        return [x + 4096, y]
+}
+
+const _uv2m = (x: number, y: number) => {
+        let px = x >>> 0
+        let py = y >>> 0
+        px = px & 0x0000ffff
+        py = py & 0x0000ffff
+        px = (px | (px << 8)) & 0x00ff00ff
+        py = (py | (py << 8)) & 0x00ff00ff
+        px = (px | (px << 4)) & 0x0f0f0f0f
+        py = (py | (py << 4)) & 0x0f0f0f0f
+        px = (px | (px << 2)) & 0x33333333
+        py = (py | (py << 2)) & 0x33333333
+        px = (px | (px << 1)) & 0x55555555
+        py = (py | (py << 1)) & 0x55555555
+        return ((py << 1) | px) >>> 0
+}
+
+export const uv2m = (x: number, y: number) => {
+        if (x < 4096) return _uv2m(x, y)
+        return 16777216 + _uv2m(x - 4096, y)
+}
+
+export const atlas2occ = (data: Uint8ClampedArray, width: number, height: number) => {
+        const total = REGION * REGION * REGION
+        const occ = new Uint8Array(total)
+        for (let id = 0; id < total; id++) {
+                const [ax, ay] = m2uv(id)
+                if (ax >= width || ay >= height) continue
+                const [x, y, z] = m2xyz(id)
+                const alpha = data[(ay * width + ax) * 4 + 3]
+                occ[x + (y + z * REGION) * REGION] = alpha > 0 ? 1 : 0
+        }
+        return occ
 }
 
 export const timer = (t = 6) => {

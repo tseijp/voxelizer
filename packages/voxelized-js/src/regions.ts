@@ -1,5 +1,5 @@
 import { createRegion } from './region'
-import { CACHE, CHUNK, culling, offOf, posOf, PREFETCH, REGION, regionId, SCOPE, scoped, SLOT } from './utils'
+import { CACHE, culling, offOf, posOf, PREFETCH, REGION, regionId, SCOPE, scoped, SLOT } from './utils'
 import type { Camera } from './camera'
 import type { Mesh } from './mesh'
 import type { Queues } from './queue'
@@ -63,7 +63,7 @@ export const createRegions = (mesh: Mesh, cam: Camera, queues: Queues) => {
                         if (r.fetching()) return
                         r.prefetch(0)
                 })
-                if (keep[0]) _prune(active, keep[0]) // keep[0] is the closest region
+                if (keep[0]) _prune(active, keep[0])
                 return keepSet
         }
         const pick = (wx = 0, wy = 0, wz = 0) => {
@@ -74,26 +74,10 @@ export const createRegions = (mesh: Mesh, cam: Camera, queues: Queues) => {
                 const rid = regionId(rxi, ryj)
                 const r = regions.get(rid)
                 if (!r) return 0
-                const lx = wx - r.x
-                const ly = wy - r.y
-                const lz = wz - r.z
-                const ci = Math.floor(lx / CHUNK)
-                const cj = Math.floor(ly / CHUNK)
-                const ck = Math.floor(lz / CHUNK)
-                if (ci < 0 || ci > 15 || cj < 0 || cj > 15 || ck < 0 || ck > 15) return 0
-                const c = r.get(ci, cj, ck)
-                if (!c) return 0
-                if (!c.vox()) {
-                        const ctx = r.ctx()
-                        if (ctx) c.load(ctx)
-                }
-                if (!c.vox()) return 0
-                const vx = Math.floor(lx - ci * CHUNK)
-                const vy = Math.floor(ly - cj * CHUNK)
-                const vz = Math.floor(lz - ck * CHUNK)
-                if (vx < 0 || vx > 15 || vy < 0 || vy > 15 || vz < 0 || vz > 15) return 0
-                const idx = vx + (vy + vz * CHUNK) * CHUNK
-                return c.vox()[idx]
+                const lx = wx - (rxi - SCOPE.x0) * REGION
+                const ly = wy
+                const lz = wz - (ryj - SCOPE.y0) * REGION
+                return r.pick(lx, ly, lz)
         }
         return { vis, pick }
 }

@@ -85,7 +85,7 @@ export const createSlots = (size = 16) => {
                 const slot = owner[index]
                 if (slot.region() !== r) return false
                 if (!slot.ready(c, pg, budget)) return false
-                return r.chunk(slot.ctx(), index, budget)
+                return r.build(slot.ctx(), index)
         }
         const _release = (keep: Set<Region>) => {
                 owner.forEach((slot) => {
@@ -97,7 +97,6 @@ export const createSlots = (size = 16) => {
                 _release((keep = next))
                 cursor = 0
                 pending = Array.from(keep)
-                pending.forEach((r) => r.cursor())
         }
         const step = (c: WebGL2RenderingContext, pg: WebGLProgram, budget = 6) => {
                 const start = performance.now()
