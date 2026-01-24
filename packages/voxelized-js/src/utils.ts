@@ -1,11 +1,11 @@
 // export const SCOPE = { x0: 28, x1: 123, y0: 75, y1: 79 }
 
 // export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 }
-export const SCOPE = { x0: 116414, x1: 116416, y0: 51622, y1: 51624 }
+// export const SCOPE = { x0: 116414, x1: 116416, y0: 51622, y1: 51624 }
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51620, y1: 51624 }
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51615, y1: 51624 }
 
-// export const SCOPE = { x0: 116358, x1: 116466, y0: 51619, y1: 51627 }
+export const SCOPE = { x0: 116358, x1: 116466, y0: 51619, y1: 51627 }
 
 export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
@@ -120,12 +120,15 @@ export const uv2m = (x: number, y: number) => {
 export const atlas2occ = (data: Uint8ClampedArray, width: number, height: number) => {
         const total = REGION * REGION * REGION
         const occ = new Uint8Array(total)
-        for (let id = 0; id < total; id++) {
-                const [ax, ay] = m2uv(id)
-                if (ax >= width || ay >= height) continue
+        const pixels = width * height
+        for (let i = 0; i < pixels; i++) {
+                const alpha = data[i * 4 + 3]
+                if (alpha === 0) continue
+                const ax = i % width
+                const ay = (i / width) | 0
+                const id = uv2m(ax, ay)
                 const [x, y, z] = m2xyz(id)
-                const alpha = data[(ay * width + ax) * 4 + 3]
-                occ[x + (y + z * REGION) * REGION] = alpha > 0 ? 1 : 0
+                occ[x + (y + z * REGION) * REGION] = 1
         }
         return occ
 }

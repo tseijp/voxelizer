@@ -1,4 +1,5 @@
 import { atlas2occ, REGION } from './utils'
+// import { greedyMesh } from 'voxelized-rs'
 
 const greedyMesh = (src: Uint8Array, size = REGION, pos: number[] = [], scl: number[] = [], cnt = 0) => {
         const data = new Uint8Array(src)

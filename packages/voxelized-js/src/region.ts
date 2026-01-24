@@ -3,6 +3,8 @@ import { buildMeshFromAtlas } from './mesh'
 import type { Mesh } from './mesh'
 import type { Queues, QueueTask } from './queue'
 
+type BuiltCache = { pos: number[]; scl: number[]; cnt: number }
+
 export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Queues) => {
         let isDisposed = false
         let isMeshed = false
@@ -11,6 +13,10 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
         let img: HTMLImageElement
         let ctx: CanvasRenderingContext2D
         let occ: Uint8Array
+        let cache: BuiltCache
+
+        const image = async (priority = 0) => img || (await prefetch(priority))
+
         const prefetch = (priority = 0) => {
                 if (isDisposed || img) return Promise.resolve(img)
                 if (!pending) {
@@ -23,14 +29,14 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 } else queues.bump(queued, priority)
                 return pending
         }
-        const image = async (priority = 0) => img || (await prefetch(priority))
         const build = (_ctx: CanvasRenderingContext2D, index = 0, width = 4096, height = 4096) => {
                 if (isMeshed || isDisposed) return true
                 ctx = _ctx
-                const data = _ctx.getImageData(0, 0, width, height).data as Uint8ClampedArray
-                const built = buildMeshFromAtlas(data, width, height)
-                const { x, y, z } = offOf(i, j)
-                mesh.merge(built, index, x, y, z)
+                if (!cache) {
+                        const data = _ctx.getImageData(0, 0, width, height).data as Uint8ClampedArray
+                        cache = buildMeshFromAtlas(data, width, height)
+                }
+                mesh.merge(cache, index, 0, 0, 0)
                 isMeshed = true
                 return true
         }
@@ -51,6 +57,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 img = undefined as unknown as HTMLImageElement
                 ctx = undefined as unknown as CanvasRenderingContext2D
                 occ = undefined as unknown as Uint8Array
+                cache = undefined as unknown as BuiltCache
                 return true
         }
         const resetMesh = () => void (isMeshed = false)
