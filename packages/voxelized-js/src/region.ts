@@ -12,6 +12,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
         let data: WorkerResult
         let ticket = 0
         let failUntil = 0
+        let request = 'none' as 'none' | 'image' | 'full'
 
         const _request = (mode: 'image' | 'full', priority = 0) => {
                 if (performance.now() < failUntil) return Promise.resolve(data)
@@ -22,7 +23,8 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                         ticket++
                         const t = ticket
                         const url = `${ATLAS_URL}/17_${i}_${j}.png`
-                        const { promise, task } = queues.schedule(() => worker.run({ url, mode }), priority)
+                        request = mode
+                        const { promise, task } = queues.schedule((signal) => worker.run({ url, mode }, signal), priority, mode)
                         queued = task
                         pending = promise
                                 .then((res) => {
@@ -42,7 +44,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                                         return data
                                 })
                 } else {
-                        queues.bump(queued, priority)
+                        queues.tune(queued, priority)
                 }
                 return pending
         }
@@ -61,21 +63,39 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 const idx = Math.floor(lx) + (Math.floor(ly) + Math.floor(lz) * REGION) * REGION
                 return data.occ[idx]
         }
+        const abort = () => {
+                ticket++
+                queues.abort(queued)
+                pending = undefined as unknown as Promise<WorkerResult>
+                queued = undefined as unknown as QueueTask<WorkerResult>
+                request = 'none'
+        }
+        const tune = (mode: 'none' | 'image' | 'full', priority = 0) => {
+                if (mode === 'none') {
+                        abort()
+                        return
+                }
+                if (mode === 'image') {
+                        if (level === 'full') return
+                        if (request === 'full') abort()
+                        _request('image', priority)
+                        return
+                }
+                if (request === 'image') abort()
+                _request('full', priority)
+        }
         const dispose = () => {
                 isDisposed = true
                 isMeshed = false
                 failUntil = 0
-                pending = undefined as unknown as Promise<WorkerResult>
-                queued = undefined as unknown as QueueTask<WorkerResult>
+                abort()
                 data = undefined as unknown as WorkerResult
                 level = 'none'
-                ticket++
-                queues.cancel(queued)
                 return true
         }
         const resetMesh = () => void (isMeshed = false)
         const peek = () => data?.bitmap
         const fetching = () => !!pending && (!data || (data && data.mode !== 'full'))
         const [x, y, z] = offOf(i, j)
-        return { id: regionId(i, j), x, y, z, i, j, image, build, pick, dispose, prefetch, peek, fetching, slot: -1, resetMesh }
+        return { id: regionId(i, j), x, y, z, i, j, image, build, pick, dispose, prefetch, peek, fetching, slot: -1, resetMesh, tune }
 }

@@ -31,7 +31,7 @@ const createWorkerBridge = () => {
                 console.warn('worker crash', e.message)
                 pend.forEach((p, id) => settle(id, (q) => q.reject(e.message)))
         }
-        const run = (payload: { url: string; mode: 'image' | 'full' }) => {
+        const run = (payload: { url: string; mode: 'image' | 'full' }, signal?: AbortSignal) => {
                 const id = seq++
                 let resolve = (_: WorkerResult) => {}
                 let reject = (_?: unknown) => {}
@@ -41,6 +41,14 @@ const createWorkerBridge = () => {
                 })
                 const t = window.setTimeout(() => settle(id, (p) => p.reject('timeout')), 8000)
                 pend.set(id, { resolve, reject, t })
+                if (signal?.aborted) {
+                        settle(id, (p) => p.reject('abort'))
+                        return promise
+                }
+                signal?.addEventListener('abort', () => {
+                        settle(id, (p) => p.reject('abort'))
+                        worker.postMessage({ id, abort: true })
+                })
                 worker.postMessage({ id, ...payload })
                 return promise
         }
@@ -100,20 +108,40 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                 keepSet.forEach((r) => prefetchImg.delete(r))
                 keepSet.forEach((r) => preproc.add(r))
                 preproc.forEach((r) => prefetchImg.delete(r))
-                prefetchImg.forEach((r) => r.prefetch('image', 0))
-                preproc.forEach((r) => r.prefetch('full', r.slot >= 0 ? 1 : 2))
-                if (keep[0]) store.prune(new Set([...keepSet, ...prefetchImg, ...preproc]), keep[0].region)
-                return { keepSet, prefetchImg, preproc }
+                return { keepSet, prefetchImg, preproc, anchor: keep[0]?.region }
+        }
+        const prioritize = (keepSet: Set<Region>, prefetchImg: Set<Region>, preproc: Set<Region>) => {
+                const active = new Set<Region>()
+                keepSet.forEach((r) => {
+                        r.tune('full', 3)
+                        active.add(r)
+                })
+                preproc.forEach((r) => {
+                        if (active.has(r)) return
+                        r.tune('full', 2)
+                        active.add(r)
+                })
+                prefetchImg.forEach((r) => {
+                        if (active.has(r)) return
+                        r.tune('image', 1)
+                        active.add(r)
+                })
+                store.map.forEach((r) => {
+                        if (active.has(r)) return
+                        r.tune('none', -1)
+                })
+                return active
         }
         const vis = () => {
                 const res = _coord()
                 if (!res) return visSet
-                const { keepSet, prefetchImg, preproc } = res
-                const wanted = new Set([...keepSet, ...prefetchImg, ...preproc])
+                const { keepSet, prefetchImg, preproc, anchor } = res
+                const wanted = prioritize(keepSet, prefetchImg, preproc)
                 store.map.forEach((r) => {
                         if (wanted.has(r)) return
                         r.dispose()
                 })
+                if (anchor) store.prune(wanted, anchor)
                 visSet = keepSet
                 return visSet
         }
