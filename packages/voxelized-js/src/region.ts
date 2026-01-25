@@ -33,8 +33,8 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 if (isMeshed || isDisposed) return true
                 ctx = _ctx
                 if (!cache) {
-                        const data = _ctx.getImageData(0, 0, width, height).data as Uint8ClampedArray
-                        cache = buildMeshFromAtlas(data, width, height)
+                        const data = _ctx.getImageData(0, 0, width, height).data
+                        cache = buildMeshFromAtlas(data, width, height) as BuiltCache
                 }
                 mesh.merge(cache, index, 0, 0, 0)
                 isMeshed = true
@@ -43,7 +43,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
         const pick = (lx = 0, ly = 0, lz = 0) => {
                 if (!occ) {
                         if (!ctx) return 0
-                        occ = atlas2occ(ctx.getImageData(0, 0, 4096, 4096).data as Uint8ClampedArray, 4096, 4096)
+                        occ = atlas2occ(ctx.getImageData(0, 0, 4096, 4096).data, 4096, 4096)
                 }
                 if (lx < 0 || lx >= REGION || ly < 0 || ly >= REGION || lz < 0 || lz >= REGION) return 0
                 const idx = Math.floor(lx) + (Math.floor(ly) + Math.floor(lz) * REGION) * REGION
