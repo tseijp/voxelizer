@@ -1,5 +1,3 @@
-import { createImage } from './utils'
-
 const createQueue = () => {
         const items = [] as QueueTask[]
         const sort = () => void items.sort((a, b) => b.priority - a.priority)
@@ -26,9 +24,7 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
                 task.isHigh = isHigh
                 if (isHigh) _high++
                 else _low++
-                task.start()
-                        .then((x) => task.resolve(x))
-                        .finally(() => _finally(isHigh))
+                task.start().then((x) => task.resolve(x)).finally(() => _finally(isHigh))
         }
         const _pump = () => {
                 const tick = () => {
@@ -50,15 +46,15 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
                 ;(task.isHigh ? high : low).remove(task)
                 target.add(task)
         }
-        const schedule = (start = () => createImage(''), priority = 0) => {
-                let resolve = (_img: HTMLImageElement) => {}
-                const promise = new Promise<HTMLImageElement>((r) => (resolve = r))
-                const task = { start, resolve, priority, started: false, isHigh: priority > 0 }
+        const schedule = <T>(start: () => Promise<T>, priority = 0) => {
+                let resolve = (_: T) => {}
+                const promise = new Promise<T>((r) => (resolve = r))
+                const task = { start, resolve, priority, started: false, isHigh: priority > 0 } as QueueTask<T>
                 ;(task.isHigh ? high : low).add(task)
                 _pump()
                 return { promise, task }
         }
-        const bump = (task?: QueueTask, priority = 0) => {
+        const bump = <T>(task?: QueueTask<T>, priority = 0) => {
                 if (!task || task.priority >= priority) return
                 const isHigh = priority > 0
                 task.priority = priority
@@ -82,9 +78,9 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
 
 export type Queue = ReturnType<typeof createQueue>
 export type Queues = ReturnType<typeof createQueues>
-export type QueueTask = {
-        start: () => Promise<HTMLImageElement>
-        resolve: (img: HTMLImageElement) => void
+export type QueueTask<T = unknown> = {
+        start: () => Promise<T>
+        resolve: (data: T) => void
         priority: number
         started: boolean
         isHigh: boolean
