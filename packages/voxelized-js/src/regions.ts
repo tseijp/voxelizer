@@ -1,5 +1,5 @@
 import { createRegion } from './region'
-import { CACHE, culling, offOf, posOf, PREFETCH, REGION, regionId, SCOPE, scoped, SLOT } from './utils'
+import { CACHE, culling, offOf, posOf, PREFETCH, regionId, SCOPE, scoped, SLOT } from './utils'
 import type { Camera } from './camera'
 import type { Mesh } from './mesh'
 import type { Queues } from './queue'
@@ -15,17 +15,17 @@ export const createRegions = (mesh: Mesh, cam: Camera, queues: Queues) => {
                 return r
         }
         const _coord = () => {
-                const start = posOf(cam.pos)
-                const list = [{ ...start, d: -1, region: _ensure(start.i, start.j) }]
+                const [si, sj] = posOf(cam.pos[0], cam.pos[2])
+                const list = [{ i: si, j: sj, d: -1, region: _ensure(si, sj) }]
                 const prefetch = new Set<Region>()
                 const _tick = (i = 0, j = 0) => {
                         if (i === 0 && j === 0) return
                         i -= PREFETCH
                         j -= PREFETCH
                         const d = Math.hypot(i, j)
-                        i += start.i
-                        j += start.j
-                        const { x, y, z } = offOf(i, j)
+                        i += si
+                        j += sj
+                        const [x, y, z] = offOf(i, j)
                         if (!culling(cam.MVP, x, y, z) && d > SLOT) return
                         if (!scoped(i, j)) return
                         const region = _ensure(i, j)
@@ -67,17 +67,13 @@ export const createRegions = (mesh: Mesh, cam: Camera, queues: Queues) => {
                 return keepSet
         }
         const pick = (wx = 0, wy = 0, wz = 0) => {
-                const rxi = SCOPE.x0 + Math.floor(wx / REGION)
-                const ryj = SCOPE.y0 + Math.floor(wz / REGION)
+                const [rxi, ryj] = posOf(wx, wz)
                 if (rxi < SCOPE.x0 || rxi > SCOPE.x1) return 0
                 if (ryj < SCOPE.y0 || ryj > SCOPE.y1) return 0
-                const rid = regionId(rxi, ryj)
-                const r = regions.get(rid)
+                const r = regions.get(regionId(rxi, ryj))
                 if (!r) return 0
-                const lx = wx - (rxi - SCOPE.x0) * REGION
-                const ly = wy
-                const lz = wz - (ryj - SCOPE.y0) * REGION
-                return r.pick(lx, ly, lz)
+                const [ox, , oz] = offOf(rxi, ryj)
+                return r.pick(wx - ox, wy, wz - oz)
         }
         return { vis, pick }
 }
