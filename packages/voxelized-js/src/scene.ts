@@ -10,19 +10,30 @@ type Pending = { resolve: (v: WorkerResult) => void }
 const createWorkerBridge = () => {
         const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
         let seq = 0
-        const pend = new Map<number, Pending>()
-        worker.onmessage = (e: MessageEvent) => {
-                const { id, ...rest } = e.data as WorkerResult & { id: number }
+        const pend = new Map<number, { resolve: (v: WorkerResult) => void; reject: (e?: unknown) => void; t: number }>()
+        const settle = (id: number, fn: (p: { resolve: (v: WorkerResult) => void; reject: (e?: unknown) => void }) => void) => {
                 const p = pend.get(id)
                 if (!p) return
                 pend.delete(id)
-                p.resolve(rest as WorkerResult)
+                clearTimeout(p.t)
+                fn(p)
         }
+        worker.onmessage = (e: MessageEvent) => {
+                const { id, ...rest } = e.data as WorkerResult & { id: number; error?: string }
+                if (rest.mode === 'error') return settle(id, (p) => p.reject(rest))
+                settle(id, (p) => p.resolve(rest as WorkerResult))
+        }
+        worker.onerror = (e: ErrorEvent) => pend.forEach((p, id) => settle(id, (q) => q.reject(e.message)))
         const run = (payload: { url: string; mode: 'image' | 'full' }) => {
                 const id = seq++
                 let resolve = (_: WorkerResult) => {}
-                const promise = new Promise<WorkerResult>((r) => (resolve = r))
-                pend.set(id, { resolve })
+                let reject = (_?: unknown) => {}
+                const promise = new Promise<WorkerResult>((r, j) => {
+                        resolve = r
+                        reject = j
+                })
+                const t = window.setTimeout(() => settle(id, (p) => p.reject('timeout')), 8000)
+                pend.set(id, { resolve, reject, t })
                 worker.postMessage({ id, ...payload })
                 return promise
         }
@@ -96,10 +107,11 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                         isLoading = true
                         last = now
                 }
-                if (isLoading) if (slots.step(gl.gl, gl.program, 6)) {
-                        mesh.commit()
-                        isLoading = false
-                }
+                if (isLoading)
+                        if (slots.step(gl.gl, gl.program, 6)) {
+                                mesh.commit()
+                                isLoading = false
+                        }
         }
         const pick = (wx = 0, wy = 0, wz = 0) => {
                 const [rxi, ryj] = posOf(wx, wz)

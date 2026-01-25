@@ -24,7 +24,7 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
                 task.isHigh = isHigh
                 if (isHigh) _high++
                 else _low++
-                task.start().then((x) => task.resolve(x)).finally(() => _finally(isHigh))
+                task.start().then((x) => task.resolve(x)).catch(() => task.resolve(undefined as T)).finally(() => _finally(isHigh))
         }
         const _pump = () => {
                 const tick = () => {

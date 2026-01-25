@@ -21,12 +21,14 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                         const url = `${ATLAS_URL}/17_${i}_${j}.png`
                         const { promise, task } = queues.schedule(() => worker.run({ url, mode }), priority)
                         queued = task
-                        pending = promise.then((res) => {
-                                if (isDisposed) return res
-                                data = res
-                                level = res.mesh ? 'full' : 'image'
-                                return res
-                        })
+                        pending = promise
+                                .then((res) => {
+                                        if (isDisposed) return res
+                                        data = res
+                                        level = res.mesh ? 'full' : 'image'
+                                        return res
+                                })
+                                .catch(() => data)
                 } else queues.bump(queued, priority)
                 return pending
         }
