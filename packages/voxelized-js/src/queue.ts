@@ -24,7 +24,10 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
                 task.isHigh = isHigh
                 if (isHigh) _high++
                 else _low++
-                task.start().then((x) => task.resolve(x)).catch(() => task.resolve(undefined as T)).finally(() => _finally(isHigh))
+                task.start()
+                        .then((x) => task.resolve(x))
+                        .catch(() => task.resolve(undefined as unknown as QueueValue))
+                        .finally(() => _finally(isHigh))
         }
         const _pump = () => {
                 const tick = () => {
@@ -49,12 +52,12 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
         const schedule = <T>(start: () => Promise<T>, priority = 0) => {
                 let resolve = (_: T) => {}
                 const promise = new Promise<T>((r) => (resolve = r))
-                const task = { start, resolve, priority, started: false, isHigh: priority > 0 } as QueueTask<T>
+                const task = { start, resolve, priority, started: false, isHigh: priority > 0 } as QueueTask<any>
                 ;(task.isHigh ? high : low).add(task)
                 _pump()
                 return { promise, task }
         }
-        const bump = <T>(task?: QueueTask<T>, priority = 0) => {
+        const bump = (task?: QueueTask<any>, priority = 0) => {
                 if (!task || task.priority >= priority) return
                 const isHigh = priority > 0
                 task.priority = priority
@@ -73,12 +76,18 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
                 }
                 _pump()
         }
-        return { schedule, bump }
+        const cancel = (task?: QueueTask<any>) => {
+                if (!task || task.started) return
+                ;(task.isHigh ? high : low).remove(task)
+                _pump()
+        }
+        return { schedule, bump, cancel }
 }
 
 export type Queue = ReturnType<typeof createQueue>
 export type Queues = ReturnType<typeof createQueues>
-export type QueueTask<T = unknown> = {
+type QueueValue = unknown
+export type QueueTask<T = QueueValue> = {
         start: () => Promise<T>
         resolve: (data: T) => void
         priority: number

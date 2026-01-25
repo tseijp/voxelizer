@@ -1,7 +1,7 @@
 import { createRegion } from './region'
 import { createSlots } from './slot'
 import { createQueues } from './queue'
-import { CACHE, culling, offOf, posOf, PREFETCH, REGION, ROW, SCOPE, SLOT, scoped } from './utils'
+import { CACHE, culling, offOf, posOf, PREFETCH, REGION, ROW, SCOPE, SLOT, scoped, PREBUILD } from './utils'
 import type { Camera } from './camera'
 import type { Mesh } from './mesh'
 
@@ -20,10 +20,17 @@ const createWorkerBridge = () => {
         }
         worker.onmessage = (e: MessageEvent) => {
                 const { id, ...rest } = e.data as WorkerResult & { id: number; error?: string }
-                if (rest.mode === 'error') return settle(id, (p) => p.reject(rest))
+                if (rest.mode === 'error')
+                        return settle(id, (p) => {
+                                console.warn('worker error', rest)
+                                p.reject(rest)
+                        })
                 settle(id, (p) => p.resolve(rest as WorkerResult))
         }
-        worker.onerror = (e: ErrorEvent) => pend.forEach((p, id) => settle(id, (q) => q.reject(e.message)))
+        worker.onerror = (e: ErrorEvent) => {
+                console.warn('worker crash', e.message)
+                pend.forEach((p, id) => settle(id, (q) => q.reject(e.message)))
+        }
         const run = (payload: { url: string; mode: 'image' | 'full' }) => {
                 const id = seq++
                 let resolve = (_: WorkerResult) => {}
@@ -83,7 +90,7 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                         const d = Math.hypot(dx, dy)
                         const [x, y, z] = offOf(rx, ry)
                         if (Math.abs(dx) < PREFETCH && Math.abs(dy) < PREFETCH) prefetchImg.add(region)
-                        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) preproc.add(region)
+                        if (Math.abs(dx) < PREBUILD && Math.abs(dy) < PREBUILD) preproc.add(region)
                         if (!culling(cam.MVP, x, y, z)) return
                         keep.push({ d, region })
                 }
@@ -92,12 +99,24 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                 const keepSet = new Set(keep.slice(0, SLOT).map((k) => k.region))
                 keepSet.forEach((r) => prefetchImg.delete(r))
                 keepSet.forEach((r) => preproc.add(r))
+                preproc.forEach((r) => prefetchImg.delete(r))
                 prefetchImg.forEach((r) => r.prefetch('image', 0))
                 preproc.forEach((r) => r.prefetch('full', r.slot >= 0 ? 1 : 2))
                 if (keep[0]) store.prune(new Set([...keepSet, ...prefetchImg, ...preproc]), keep[0].region)
-                return keepSet
+                return { keepSet, prefetchImg, preproc }
         }
-        const vis = () => (visSet = _coord() || visSet)
+        const vis = () => {
+                const res = _coord()
+                if (!res) return visSet
+                const { keepSet, prefetchImg, preproc } = res
+                const wanted = new Set([...keepSet, ...prefetchImg, ...preproc])
+                store.map.forEach((r) => {
+                        if (wanted.has(r)) return
+                        r.dispose()
+                })
+                visSet = keepSet
+                return visSet
+        }
         const render = (gl: { gl: WebGL2RenderingContext; program: WebGLProgram }) => {
                 const now = performance.now()
                 if (!isLoading && now - last >= 100) {
