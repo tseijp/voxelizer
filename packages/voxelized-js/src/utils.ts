@@ -34,87 +34,76 @@ export const scoped = (i = 0, j = 0) => {
 }
 
 export const xyz2m = (x: number, y: number, z: number) => {
-        let px = x >>> 0
-        let py = y >>> 0
-        let pz = z >>> 0
-        px = (px | (px << 16)) & 0xff0000ff
-        py = (py | (py << 16)) & 0xff0000ff
-        pz = (pz | (pz << 16)) & 0xff0000ff
-        px = (px | (px << 8)) & 0x0300f00f
-        py = (py | (py << 8)) & 0x0300f00f
-        pz = (pz | (pz << 8)) & 0x0300f00f
-        px = (px | (px << 4)) & 0x030c30c3
-        py = (py | (py << 4)) & 0x030c30c3
-        pz = (pz | (pz << 4)) & 0x030c30c3
-        px = (px | (px << 2)) & 0x09249249
-        py = (py | (py << 2)) & 0x09249249
-        pz = (pz | (pz << 2)) & 0x09249249
-        return (px | (py << 1) | (pz << 2)) >>> 0
+        x = x >>> 0
+        y = y >>> 0
+        z = z >>> 0
+        x = (x | (x << 16)) & 0xff0000ff
+        y = (y | (y << 16)) & 0xff0000ff
+        z = (z | (z << 16)) & 0xff0000ff
+        x = (x | (x << 8)) & 0x0300f00f
+        y = (y | (y << 8)) & 0x0300f00f
+        z = (z | (z << 8)) & 0x0300f00f
+        x = (x | (x << 4)) & 0x030c30c3
+        y = (y | (y << 4)) & 0x030c30c3
+        z = (z | (z << 4)) & 0x030c30c3
+        x = (x | (x << 2)) & 0x09249249
+        y = (y | (y << 2)) & 0x09249249
+        z = (z | (z << 2)) & 0x09249249
+        return (x | (y << 1) | (z << 2)) >>> 0
 }
 
 export const m2xyz = (morton: number): [number, number, number] => {
-        let px = morton >>> 0
-        let py = (morton >>> 1) >>> 0
-        let pz = (morton >>> 2) >>> 0
-        px = px & 0x09249249
-        py = py & 0x09249249
-        pz = pz & 0x09249249
-        px = (px | (px >>> 2)) & 0x030c30c3
-        py = (py | (py >>> 2)) & 0x030c30c3
-        pz = (pz | (pz >>> 2)) & 0x030c30c3
-        px = (px | (px >>> 4)) & 0x0300f00f
-        py = (py | (py >>> 4)) & 0x0300f00f
-        pz = (pz | (pz >>> 4)) & 0x0300f00f
-        px = (px | (px >>> 8)) & 0xff0000ff
-        py = (py | (py >>> 8)) & 0xff0000ff
-        pz = (pz | (pz >>> 8)) & 0xff0000ff
-        px = (px | (px >>> 16)) & 0x000003ff
-        py = (py | (py >>> 16)) & 0x000003ff
-        pz = (pz | (pz >>> 16)) & 0x000003ff
-        return [px, py, pz]
+        let x = morton >>> 0
+        let y = (morton >>> 1) >>> 0
+        let z = (morton >>> 2) >>> 0
+        x = x & 0x09249249
+        y = y & 0x09249249
+        z = z & 0x09249249
+        x = (x | (x >>> 2)) & 0x030c30c3
+        y = (y | (y >>> 2)) & 0x030c30c3
+        z = (z | (z >>> 2)) & 0x030c30c3
+        x = (x | (x >>> 4)) & 0x0300f00f
+        y = (y | (y >>> 4)) & 0x0300f00f
+        z = (z | (z >>> 4)) & 0x0300f00f
+        x = (x | (x >>> 8)) & 0xff0000ff
+        y = (y | (y >>> 8)) & 0xff0000ff
+        z = (z | (z >>> 8)) & 0xff0000ff
+        x = (x | (x >>> 16)) & 0x000003ff
+        y = (y | (y >>> 16)) & 0x000003ff
+        z = (z | (z >>> 16)) & 0x000003ff
+        return [x, y, z]
 }
 
-const _m2uv = (morton: number): [number, number] => {
-        let px = morton >>> 0
-        let py = (morton >>> 1) >>> 0
-        px = px & 0x55555555
-        py = py & 0x55555555
-        px = (px | (px >>> 1)) & 0x33333333
-        py = (py | (py >>> 1)) & 0x33333333
-        px = (px | (px >>> 2)) & 0x0f0f0f0f
-        py = (py | (py >>> 2)) & 0x0f0f0f0f
-        px = (px | (px >>> 4)) & 0x00ff00ff
-        py = (py | (py >>> 4)) & 0x00ff00ff
-        px = (px | (px >>> 8)) & 0x0000ffff
-        py = (py | (py >>> 8)) & 0x0000ffff
-        return [px, py]
-}
-
-export const m2uv = (id: number): [number, number] => {
-        if (id < 16777216) return _m2uv(id)
-        const [x, y] = _m2uv(id - 16777216)
-        return [x + 4096, y]
-}
-
-const _uv2m = (x: number, y: number) => {
-        let px = x >>> 0
-        let py = y >>> 0
-        px = px & 0x0000ffff
-        py = py & 0x0000ffff
-        px = (px | (px << 8)) & 0x00ff00ff
-        py = (py | (py << 8)) & 0x00ff00ff
-        px = (px | (px << 4)) & 0x0f0f0f0f
-        py = (py | (py << 4)) & 0x0f0f0f0f
-        px = (px | (px << 2)) & 0x33333333
-        py = (py | (py << 2)) & 0x33333333
-        px = (px | (px << 1)) & 0x55555555
-        py = (py | (py << 1)) & 0x55555555
-        return ((py << 1) | px) >>> 0
+export const m2uv = (morton: number): [number, number] => {
+        let x = morton >>> 0
+        let y = (morton >>> 1) >>> 0
+        x = x & 0x55555555
+        y = y & 0x55555555
+        x = (x | (x >>> 1)) & 0x33333333
+        y = (y | (y >>> 1)) & 0x33333333
+        x = (x | (x >>> 2)) & 0x0f0f0f0f
+        y = (y | (y >>> 2)) & 0x0f0f0f0f
+        x = (x | (x >>> 4)) & 0x00ff00ff
+        y = (y | (y >>> 4)) & 0x00ff00ff
+        x = (x | (x >>> 8)) & 0x0000ffff
+        y = (y | (y >>> 8)) & 0x0000ffff
+        return [x, y]
 }
 
 export const uv2m = (x: number, y: number) => {
-        if (x < 4096) return _uv2m(x, y)
-        return 16777216 + _uv2m(x - 4096, y)
+        x = x >>> 0
+        y = y >>> 0
+        x = x & 0x0000ffff
+        y = y & 0x0000ffff
+        x = (x | (x << 8)) & 0x00ff00ff
+        y = (y | (y << 8)) & 0x00ff00ff
+        x = (x | (x << 4)) & 0x0f0f0f0f
+        y = (y | (y << 4)) & 0x0f0f0f0f
+        x = (x | (x << 2)) & 0x33333333
+        y = (y | (y << 2)) & 0x33333333
+        x = (x | (x << 1)) & 0x55555555
+        y = (y | (y << 1)) & 0x55555555
+        return ((y << 1) | x) >>> 0
 }
 
 export const atlas2occ = (data: Uint8ClampedArray, width: number, height: number) => {
