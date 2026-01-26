@@ -1,5 +1,5 @@
 import { range, timer } from './utils'
-import type { Region } from './scene'
+import type { Region } from './region'
 
 const createSlot = (index = 0) => {
         let tex: WebGLTexture
@@ -76,8 +76,7 @@ export const createSlots = (size = 16) => {
                 if (index < 0) {
                         index = owner.findIndex((slot) => !slot.region())
                         if (index < 0) return false
-                        const slot = owner[index]
-                        slot.set(r, index)
+                        owner[index].set(r, index)
                 }
                 const slot = owner[index]
                 if (slot.region() !== r) return false

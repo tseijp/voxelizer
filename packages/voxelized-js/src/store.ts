@@ -66,7 +66,7 @@ export const createStore = (mesh: Mesh, queues = createQueues(), worker = create
                 map.set(id, region)
                 return region
         }
-        const prune = (active: Set<Region>, { i, j }: { i: number; j: number }) => {
+        const prune = (active: Set<Region>, i: number, j: number) => {
                 if (map.size <= CACHE) return
                 const dist = (r: Region) => Math.hypot(r.i - i, r.j - j)
                 const list = [...map.values()].filter((r) => !active.has(r)).sort((a, b) => dist(b) - dist(a))

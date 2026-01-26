@@ -18,6 +18,7 @@ export const ATLAS_URL = 'http://localhost:5500/logs/v4'
 // export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3`
 
 export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => [(i - SCOPE.x0) << 8, 0, (j - SCOPE.y0) << 8]
+export const localIdx = (x: number, y: number, z: number) => (x | 0) + ((y | 0) + (z | 0) * REGION) * REGION
 export const posOf = (x = 0, z = 0) => [SCOPE.x0 + (x >> 8), SCOPE.y0 + (z >> 8)]
 export const range = (n = 0) => [...Array(n).keys()]
 export const regionId = (i = 0, j = 0) => i + ROW * j
@@ -57,6 +58,16 @@ export const createPriority = (executor = (resolve: Function) => resolve()) => {
                         return promise
                 },
         }
+}
+
+export const inRegion = (x: number, y: number, z: number) => {
+        if (x < 0) return false
+        if (y < 0) return false
+        if (z < 0) return false
+        if (x >= REGION) return false
+        if (y >= REGION) return false
+        if (z >= REGION) return false
+        return true
 }
 
 export const scoped = (i = 0, j = 0) => {
@@ -155,7 +166,7 @@ export const atlas2occ = (data: Uint8ClampedArray, width: number, height: number
                 const ay = (i / width) | 0
                 const id = uv2m(ax, ay)
                 const [x, y, z] = m2xyz(id)
-                occ[x + (y + z * REGION) * REGION] = 1
+                occ[localIdx(x, y, z)] = 1
         }
         return occ
 }

@@ -12,22 +12,22 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
         let isLoading = false
         let pt = performance.now()
         const vis = () => {
-                const [si, sj] = posOf(cam.pos[0], cam.pos[2])
                 const keep: { d: number; r: Region }[] = []
                 const prefetch = new Set<Region>()
                 const prebuild = new Set<Region>()
+                const [i, j] = posOf(cam.pos[0], cam.pos[2])
                 iterGrid(PREFETCH, (dx, dy) => {
-                        const [rx, ry] = [si + dx, sj + dy]
-                        if (!scoped(rx, ry)) return
-                        const r = store.ensure(rx, ry)
+                        const [_i, _j] = [i + dx, j + dy]
+                        if (!scoped(_i, _j)) return
+                        const r = store.ensure(_i, _j)
                         if (withinRange(dx, dy, PREFETCH)) prefetch.add(r)
                         if (withinRange(dx, dy, PREBUILD)) prebuild.add(r)
-                        if (culling(cam.MVP, ...offOf(rx, ry))) keep.push({ d: Math.hypot(dx, dy), r })
+                        if (culling(cam.MVP, ...offOf(_i, _j))) keep.push({ d: Math.hypot(dx, dy), r })
                 })
                 keep.sort((a, b) => a.d - b.d)
-                const keepSet = new Set(keep.slice(0, SLOT).map((k) => k.r))
+                regions = new Set(keep.slice(0, SLOT).map((k) => k.r))
                 const active = new Set<Region>()
-                keepSet.forEach((r) => {
+                regions.forEach((r) => {
                         r.tune('full', 3)
                         active.add(r)
                 })
@@ -46,10 +46,10 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                         r.tune('none', -1)
                         r.dispose()
                 })
-                if (keep[0]?.r) store.prune(active, keep[0].r)
-                return (regions = keepSet)
+                store.prune(active, i, j)
+                return regions
         }
-        const render = (gl: { gl: WebGL2RenderingContext; program: WebGLProgram }) => {
+        const render = (gl: WebGL2RenderingContext, program: WebGLProgram) => {
                 const now = performance.now()
                 if (!isLoading && now - pt >= 100) {
                         vis()
@@ -59,7 +59,7 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                         pt = now
                 }
                 if (isLoading)
-                        if (slots.step(gl.gl, gl.program, 6)) {
+                        if (slots.step(gl, program, 6)) {
                                 mesh.commit()
                                 isLoading = false
                         }

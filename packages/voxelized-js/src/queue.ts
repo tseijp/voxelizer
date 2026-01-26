@@ -6,7 +6,7 @@ const createQueue = () => {
         const items = [] as QueueTask[]
         const sort = () => void items.sort((a, b) => b.priority - a.priority)
         const add = (task: QueueTask) => items.push(task)
-        const shift = () => items.shift()
+        const shift = () => items.shift()!
         const remove = (task: QueueTask) => {
                 const index = items.indexOf(task)
                 if (index >= 0) items.splice(index, 1)
@@ -48,8 +48,7 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
                         low.sort()
                         if (_high + _low >= limit) return
                         if (high.size() > 0) {
-                                const task = high.shift() as QueueTask
-                                _launch(task, true)
+                                _launch(high.shift(), true)
                                 return tick()
                         }
                         if (low.size() <= 0 || _low >= lowLimit) return
