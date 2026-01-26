@@ -11,7 +11,7 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
         let regions = new Set<Region>()
         let isLoading = false
         let pt = performance.now()
-        const _coord = () => {
+        const vis = () => {
                 const [si, sj] = posOf(cam.pos[0], cam.pos[2])
                 const keep: { d: number; r: Region }[] = []
                 const prefetch = new Set<Region>()
@@ -26,11 +26,6 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                 })
                 keep.sort((a, b) => a.d - b.d)
                 const keepSet = new Set(keep.slice(0, SLOT).map((k) => k.r))
-                keepSet.forEach((r) => prefetch.delete(r))
-                keepSet.forEach((r) => prebuild.add(r))
-                return { keepSet, prefetch, prebuild, anchor: keep[0]?.r }
-        }
-        const _want = (keepSet: Set<Region>, prefetch: Set<Region>, prebuild: Set<Region>) => {
                 const active = new Set<Region>()
                 keepSet.forEach((r) => {
                         r.tune('full', 3)
@@ -49,19 +44,9 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                 store.map.forEach((r) => {
                         if (active.has(r)) return
                         r.tune('none', -1)
-                })
-                return active
-        }
-        const vis = () => {
-                const res = _coord()
-                if (!res) return regions
-                const { keepSet, prefetch, prebuild, anchor } = res
-                const wanted = _want(keepSet, prefetch, prebuild)
-                store.map.forEach((r) => {
-                        if (wanted.has(r)) return
                         r.dispose()
                 })
-                if (anchor) store.prune(wanted, anchor)
+                if (keep[0]?.r) store.prune(active, keep[0].r)
                 return (regions = keepSet)
         }
         const render = (gl: { gl: WebGL2RenderingContext; program: WebGLProgram }) => {
