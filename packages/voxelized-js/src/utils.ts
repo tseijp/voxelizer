@@ -5,7 +5,8 @@
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51620, y1: 51624 }
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51615, y1: 51624 }
 
-export const SCOPE = { x0: 116358, x1: 116466, y0: 51619, y1: 51627 }
+// for y in {51619..51626}; do for x in {116358..116467}; do yarn script2 --z 17 --x $x --y $y; done; done
+export const SCOPE = { x0: 116358, x1: 116467, y0: 51619, y1: 51626 }
 
 export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
@@ -21,6 +22,31 @@ export const posOf = (x = 0, z = 0) => [SCOPE.x0 + (x >> 8), SCOPE.y0 + (z >> 8)
 export const range = (n = 0) => [...Array(n).keys()]
 export const regionId = (i = 0, j = 0) => i + ROW * j
 export const culling = (VP = M.create(), rx = 0, ry = 0, rz = 0) => visSphere(VP as number[], rx + 128, ry + 128, rz + 128, Math.sqrt(256 * 256 * 3) * 0.5)
+export const length = (x = 0, y = 0, X = 1, Y = 1) => Math.hypot(X - x, Y - y)
+
+export const createPromise = (executor = (resolve: Function) => resolve()) => {
+        let current = new Promise(executor)
+        return {
+                finally: (fun = () => {}) => (current = current.finally(fun)),
+                catch: (fun = () => {}) => (current = current.catch(fun)),
+                then: (fun = () => {}) => (current = current.then(fun)),
+        }
+}
+
+export const createPriority = (executor = (resolve: Function) => resolve()) => {
+        const promise = createPromise(executor)
+        const current = [] as [priority: number, fun: Function][]
+        return {
+                finally: (fun = () => {}) => promise.finally(fun),
+                catch: (fun = () => {}) => promise.catch(fun),
+                then: (fun = () => {}, priority = -1) => {
+                        current.push([priority, fun])
+                        current.sort(([i], [j]) => i - j)
+                        promise.then(async () => await current.shift()![1]())
+                        return promise
+                },
+        }
+}
 
 export const scoped = (i = 0, j = 0) => {
         // if (i === 78) if (j === 75) return false
