@@ -1,6 +1,6 @@
 import { createSlots } from './slot'
 import { createStore } from './store'
-import { culling, offOf, posOf, PREFETCH, SCOPE, SLOT, scoped, PREBUILD, regionId } from './utils'
+import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId, iterGrid, withinRange } from './utils'
 import type { Camera } from './camera'
 import type { Mesh } from './mesh'
 import type { Region } from './region'
@@ -13,28 +13,22 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
         let pt = performance.now()
         const _coord = () => {
                 const [si, sj] = posOf(cam.pos[0], cam.pos[2])
-                const keep: { d: number; region: Region }[] = []
+                const keep: { d: number; r: Region }[] = []
                 const prefetch = new Set<Region>()
                 const prebuild = new Set<Region>()
-                const loop = (dx = 0, dy = 0) => {
-                        const rx = si + dx
-                        const ry = sj + dy
+                iterGrid(PREFETCH, (dx, dy) => {
+                        const [rx, ry] = [si + dx, sj + dy]
                         if (!scoped(rx, ry)) return
-                        const id = regionId(rx, ry)
-                        const region = store.map.get(id) || store.ensure(rx, ry)
-                        const d = Math.hypot(dx, dy)
-                        const [x, y, z] = offOf(rx, ry)
-                        if (Math.abs(dx) < PREFETCH && Math.abs(dy) < PREFETCH) prefetch.add(region)
-                        if (Math.abs(dx) < PREBUILD && Math.abs(dy) < PREBUILD) prebuild.add(region)
-                        if (!culling(cam.MVP, x, y, z)) return
-                        keep.push({ d, region })
-                }
-                for (let dx = -PREFETCH; dx <= PREFETCH; dx++) for (let dy = -PREFETCH; dy <= PREFETCH; dy++) loop(dx, dy)
+                        const r = store.ensure(rx, ry)
+                        if (withinRange(dx, dy, PREFETCH)) prefetch.add(r)
+                        if (withinRange(dx, dy, PREBUILD)) prebuild.add(r)
+                        if (culling(cam.MVP, ...offOf(rx, ry))) keep.push({ d: Math.hypot(dx, dy), r })
+                })
                 keep.sort((a, b) => a.d - b.d)
-                const keepSet = new Set(keep.slice(0, SLOT).map((k) => k.region))
+                const keepSet = new Set(keep.slice(0, SLOT).map((k) => k.r))
                 keepSet.forEach((r) => prefetch.delete(r))
                 keepSet.forEach((r) => prebuild.add(r))
-                return { keepSet, prefetch, prebuild, anchor: keep[0]?.region }
+                return { keepSet, prefetch, prebuild, anchor: keep[0]?.r }
         }
         const _want = (keepSet: Set<Region>, prefetch: Set<Region>, prebuild: Set<Region>) => {
                 const active = new Set<Region>()
@@ -86,13 +80,11 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                         }
         }
         const pick = (wx = 0, wy = 0, wz = 0) => {
-                const [rxi, ryj] = posOf(wx, wz)
-                if (rxi < SCOPE.x0 || rxi > SCOPE.x1) return 0
-                if (ryj < SCOPE.y0 || ryj > SCOPE.y1) return 0
-                const r = store.map.get(regionId(rxi, ryj))
+                const [ri, rj] = posOf(wx, wz)
+                if (!scoped(ri, rj)) return 0
+                const r = store.map.get(regionId(ri, rj))
                 if (!r) return 0
-                const [ox, , oz] = offOf(rxi, ryj)
-                return r.pick(wx - ox, wy, wz - oz)
+                return r.pick(...localOf(wx, wy, wz, ri, rj))
         }
         return { render, pick, vis, slots, map: store.map }
 }

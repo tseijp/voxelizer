@@ -22,7 +22,18 @@ export const posOf = (x = 0, z = 0) => [SCOPE.x0 + (x >> 8), SCOPE.y0 + (z >> 8)
 export const range = (n = 0) => [...Array(n).keys()]
 export const regionId = (i = 0, j = 0) => i + ROW * j
 export const culling = (VP = M.create(), rx = 0, ry = 0, rz = 0) => visSphere(VP as number[], rx + 128, ry + 128, rz + 128, Math.sqrt(256 * 256 * 3) * 0.5)
-export const length = (x = 0, y = 0, X = 1, Y = 1) => Math.hypot(X - x, Y - y)
+
+export const iterGrid = (range: number, callback: (dx: number, dy: number) => void) => {
+        for (let dx = -range; dx <= range; dx++) for (let dy = -range; dy <= range; dy++) callback(dx, dy)
+}
+
+export const localOf = (wx: number, wy: number, wz: number, ri: number, rj: number): [number, number, number] => {
+        const [ox, , oz] = offOf(ri, rj)
+        return [wx - ox, wy, wz - oz]
+}
+
+export const withinRange = (dx: number, dy: number, range: number) => Math.abs(dx) < range && Math.abs(dy) < range
+export const sortByDistance = <T>(items: { d: number; value: T }[]) => items.sort((a, b) => a.d - b.d)
 
 export const createPromise = (executor = (resolve: Function) => resolve()) => {
         let current = new Promise(executor)

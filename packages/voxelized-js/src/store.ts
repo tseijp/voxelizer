@@ -6,6 +6,7 @@ import type { Region } from './region'
 import type { WorkerRequest, WorkerResult } from './scene'
 
 type Pending = { resolve: (v: WorkerResult) => void; reject: (e?: unknown) => void; t: number }
+
 const createBridge = () => {
         const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
         let seq = 0
