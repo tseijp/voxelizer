@@ -1,21 +1,18 @@
-import { createContext, range, timer } from './utils'
-import type { Region } from './regions'
+import { range, timer } from './utils'
+import type { Region } from './scene'
 
 const createSlot = (index = 0) => {
-        const ctx = createContext() as CanvasRenderingContext2D
         let tex: WebGLTexture
         let atlas: WebGLUniformLocation
         let offset: WebGLUniformLocation
         let region: Region
         let isReady = false
-        let pending: HTMLImageElement
+        let pending: ImageBitmap
         const reset = () => {
-                pending = undefined as unknown as HTMLImageElement
+                pending = undefined as unknown as ImageBitmap
                 isReady = false
         }
-        const assign = (c: WebGL2RenderingContext, pg: WebGLProgram, img: HTMLImageElement) => {
-                ctx.clearRect(0, 0, 4096, 4096)
-                ctx.drawImage(img, 0, 0, img.width, img.height)
+        const assign = (c: WebGL2RenderingContext, pg: WebGLProgram, img: ImageBitmap) => {
                 if (!atlas) atlas = c.getUniformLocation(pg, `iAtlas${index}`) as WebGLUniformLocation
                 if (!offset) offset = c.getUniformLocation(pg, `iOffset${index}`) as WebGLUniformLocation
                 if (!atlas || !offset || !region) return false
@@ -31,7 +28,7 @@ const createSlot = (index = 0) => {
                         c.activeTexture(c.TEXTURE0 + index)
                         c.bindTexture(c.TEXTURE_2D, tex)
                 }
-                c.texImage2D(c.TEXTURE_2D, 0, c.RGBA, c.RGBA, c.UNSIGNED_BYTE, img) // Do not use ctx.canvas, as some img data will be lost
+                c.texImage2D(c.TEXTURE_2D, 0, c.RGBA, c.RGBA, c.UNSIGNED_BYTE, img)
                 c.uniform1i(atlas, index)
                 c.uniform3fv(offset, new Float32Array([region.x, region.y, region.z]))
                 return (isReady = true)
@@ -40,7 +37,7 @@ const createSlot = (index = 0) => {
                 if (!pending) return false
                 const checker = timer(budget)
                 const ok = assign(c, pg, pending)
-                pending = undefined as unknown as HTMLImageElement
+                pending = undefined as unknown as ImageBitmap
                 if (!ok || !checker()) return false
                 return true
         }
@@ -49,10 +46,10 @@ const createSlot = (index = 0) => {
                 if (isReady) return true
                 const img = pending || region.peek()
                 if (!img) {
-                        region.prefetch(2)
+                        region.prefetch('full', 2)
                         return false
                 }
-                pending = img
+                pending = img as ImageBitmap
                 return upload(c, pg, budget)
         }
         const set = (r: Region, index = 0) => {
@@ -66,7 +63,7 @@ const createSlot = (index = 0) => {
                 region = undefined as unknown as Region
                 reset()
         }
-        return { ready, release, set, ctx: () => ctx, isReady: () => isReady, region: () => region }
+        return { ready, release, set, isReady: () => isReady, region: () => region }
 }
 
 export const createSlots = (size = 16) => {
@@ -85,7 +82,7 @@ export const createSlots = (size = 16) => {
                 const slot = owner[index]
                 if (slot.region() !== r) return false
                 if (!slot.ready(c, pg, budget)) return false
-                return r.build(slot.ctx(), index)
+                return r.build(index)
         }
         const _release = (keep: Set<Region>) => {
                 owner.forEach((slot) => {

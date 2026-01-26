@@ -1,65 +1,101 @@
-import { ATLAS_URL, atlas2occ, createImage, offOf, REGION, regionId, SCOPE } from './utils'
-import { buildMeshFromAtlas } from './mesh'
+import { ATLAS_URL, offOf, REGION, regionId, SCOPE } from './utils'
 import type { Mesh } from './mesh'
 import type { Queues, QueueTask } from './queue'
+import type { WorkerBridge, WorkerResult } from './scene'
 
-type BuiltCache = { pos: number[]; scl: number[]; cnt: number }
-
-export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Queues) => {
+export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Queues, worker: WorkerBridge) => {
         let isDisposed = false
         let isMeshed = false
-        let pending: Promise<HTMLImageElement>
-        let queued: QueueTask
-        let img: HTMLImageElement
-        let ctx: CanvasRenderingContext2D
-        let occ: Uint8Array
-        let cache: BuiltCache
+        let pending: Promise<WorkerResult>
+        let queued: QueueTask<WorkerResult>
+        let level = 'none' as 'none' | 'image' | 'full'
+        let data: WorkerResult
+        let ticket = 0
+        let failUntil = 0
+        let request = 'none' as 'none' | 'image' | 'full'
 
-        const image = async (priority = 0) => img || (await prefetch(priority))
-
-        const prefetch = (priority = 0) => {
-                if (isDisposed || img) return Promise.resolve(img)
+        const _request = (mode: 'image' | 'full', priority = 0) => {
+                if (performance.now() < failUntil) return Promise.resolve(data)
+                if (isDisposed) return Promise.resolve(data)
+                if (level === 'full') return Promise.resolve(data)
+                if (mode === 'full' && level === 'image') pending = undefined as unknown as Promise<WorkerResult>
                 if (!pending) {
-                        const { promise, task } = queues.schedule(() => createImage(`${ATLAS_URL}/17_${i}_${j}.png`), priority)
-                        pending = promise.then((res) => {
-                                if (isDisposed) return res
-                                return (img = res)
-                        })
+                        ticket++
+                        const t = ticket
+                        const url = `${ATLAS_URL}/17_${i}_${j}.png`
+                        request = mode
+                        const { promise, task } = queues.schedule((signal) => worker.run({ url, mode }, signal), priority, mode)
                         queued = task
-                } else queues.bump(queued, priority)
+                        pending = promise
+                                .then((res) => {
+                                        if (isDisposed || t !== ticket) return res
+                                        if (!res || !res.bitmap) {
+                                                failUntil = performance.now() + 1500
+                                                level = 'none'
+                                                return data
+                                        }
+                                        data = res
+                                        level = res.mesh ? 'full' : 'image'
+                                        return res
+                                })
+                                .catch(() => {
+                                        failUntil = performance.now() + 1500
+                                        level = 'none'
+                                        return data
+                                })
+                } else {
+                        queues.tune(queued, priority)
+                }
                 return pending
         }
-        const build = (_ctx: CanvasRenderingContext2D, index = 0, width = 4096, height = 4096) => {
+        const image = async (priority = 0) => (data && data.bitmap) || _request('image', priority).then((r) => r.bitmap)
+        const prefetch = (mode: 'image' | 'full', priority = 0) => _request(mode, priority)
+        const build = (index = 0) => {
                 if (isMeshed || isDisposed) return true
-                ctx = _ctx
-                if (!cache) {
-                        const data = _ctx.getImageData(0, 0, width, height).data
-                        cache = buildMeshFromAtlas(data, width, height) as BuiltCache
-                }
-                mesh.merge(cache, index, 0, 0, 0)
+                if (!data || !data.mesh) return false
+                mesh.merge({ pos: Array.from(data.mesh.pos), scl: Array.from(data.mesh.scl), cnt: data.mesh.cnt }, index, 0, 0, 0)
                 isMeshed = true
                 return true
         }
         const pick = (lx = 0, ly = 0, lz = 0) => {
-                if (!occ) {
-                        if (!ctx) return 0
-                        occ = atlas2occ(ctx.getImageData(0, 0, 4096, 4096).data, 4096, 4096)
-                }
+                if (!data || !data.occ) return 0
                 if (lx < 0 || lx >= REGION || ly < 0 || ly >= REGION || lz < 0 || lz >= REGION) return 0
                 const idx = Math.floor(lx) + (Math.floor(ly) + Math.floor(lz) * REGION) * REGION
-                return occ[idx]
+                return data.occ[idx]
+        }
+        const abort = () => {
+                ticket++
+                queues.abort(queued)
+                pending = undefined as unknown as Promise<WorkerResult>
+                queued = undefined as unknown as QueueTask<WorkerResult>
+                request = 'none'
+        }
+        const tune = (mode: 'none' | 'image' | 'full', priority = 0) => {
+                if (mode === 'none') {
+                        abort()
+                        return
+                }
+                if (mode === 'image') {
+                        if (level === 'full') return
+                        if (request === 'full') abort()
+                        _request('image', priority)
+                        return
+                }
+                if (request === 'image') abort()
+                _request('full', priority)
         }
         const dispose = () => {
                 isDisposed = true
                 isMeshed = false
-                pending = undefined as unknown as Promise<HTMLImageElement>
-                queued = undefined as unknown as QueueTask
-                img = undefined as unknown as HTMLImageElement
-                ctx = undefined as unknown as CanvasRenderingContext2D
-                occ = undefined as unknown as Uint8Array
-                cache = undefined as unknown as BuiltCache
+                failUntil = 0
+                abort()
+                data = undefined as unknown as WorkerResult
+                level = 'none'
                 return true
         }
         const resetMesh = () => void (isMeshed = false)
-        return { id: regionId(i, j), ...offOf(i, j), i, j, image, build, pick, dispose, prefetch, ctx: () => ctx, peek: () => img, fetching: () => !!pending && !img, slot: -1, resetMesh }
+        const peek = () => data?.bitmap
+        const fetching = () => !!pending && (!data || (data && data.mode !== 'full'))
+        const [x, y, z] = offOf(i, j)
+        return { id: regionId(i, j), x, y, z, i, j, image, build, pick, dispose, prefetch, peek, fetching, slot: -1, resetMesh, tune }
 }

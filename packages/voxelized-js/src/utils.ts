@@ -11,12 +11,13 @@ export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
 export const CACHE = 32
 export const REGION = 256
-export const PREFETCH = 16
+export const PREBUILD = 2 // do not change
+export const PREFETCH = 4 // do not change
 export const ATLAS_URL = 'http://localhost:5500/logs/v4'
 // export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3`
 
-export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => ({ x: REGION * (i - SCOPE.x0), y: 0, z: REGION * (j - SCOPE.y0) })
-export const posOf = (pos = V.create()) => ({ i: SCOPE.x0 + Math.floor(pos[0] / REGION), j: SCOPE.y0 + Math.floor(pos[2] / REGION) })
+export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => [(i - SCOPE.x0) << 8, 0, (j - SCOPE.y0) << 8]
+export const posOf = (x = 0, z = 0) => [SCOPE.x0 + (x >> 8), SCOPE.y0 + (z >> 8)]
 export const range = (n = 0) => [...Array(n).keys()]
 export const regionId = (i = 0, j = 0) => i + ROW * j
 export const culling = (VP = M.create(), rx = 0, ry = 0, rz = 0) => visSphere(VP as number[], rx + 128, ry + 128, rz + 128, Math.sqrt(256 * 256 * 3) * 0.5)

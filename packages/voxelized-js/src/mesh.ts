@@ -1,11 +1,3 @@
-import { atlas2occ, REGION } from './utils'
-import { greedyMesh } from 'voxelized-rs'
-
-export const buildMeshFromAtlas = (data: Uint8ClampedArray, width: number, height: number) => {
-        const occ = atlas2occ(data, width, height)
-        return greedyMesh(occ, REGION)
-}
-
 export const createMesh = () => {
         let count = 1
         let pos = [0, 0, 0]
