@@ -1,5 +1,6 @@
 import { createSlots } from './slot'
 import { createStore } from './store'
+import { debugEnabled, emitDebug } from './debug'
 import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId, withinRange } from './utils'
 import type { Camera } from './camera'
 import type { Mesh } from './mesh'
@@ -45,6 +46,18 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                         r.tune('image', 1)
                         active.add(r)
                 })
+                if (debugEnabled()) {
+                        const toPairs = (list: Iterable<Region>) => Array.from(list).map((r) => [r.i, r.j])
+                        emitDebug({
+                                type: 'view',
+                                ts: performance.now(),
+                                anchor: [i, j],
+                                visible: toPairs(regions),
+                                prebuild: toPairs(prebuild),
+                                prefetch: toPairs(prefetch),
+                                slots: slots.debug(),
+                        })
+                }
                 store.map.forEach((r) => {
                         if (active.has(r)) return
                         r.tune('none', -1)
