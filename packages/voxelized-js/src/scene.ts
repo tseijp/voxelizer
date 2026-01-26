@@ -1,9 +1,13 @@
 import { createSlots } from './slot'
 import { createStore } from './store'
-import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId, iterGrid, withinRange } from './utils'
+import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId, withinRange } from './utils'
 import type { Camera } from './camera'
 import type { Mesh } from './mesh'
 import type { Region } from './region'
+
+const grid = (range: number, callback: (dx: number, dy: number) => void) => {
+        for (let dx = -range; dx <= range; dx++) for (let dy = -range; dy <= range; dy++) callback(dx, dy)
+}
 
 export const createScene = (mesh: Mesh, cam: Camera) => {
         const slots = createSlots(SLOT)
@@ -16,7 +20,7 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                 const prefetch = new Set<Region>()
                 const prebuild = new Set<Region>()
                 const [i, j] = posOf(cam.pos[0], cam.pos[2])
-                iterGrid(PREFETCH, (dx, dy) => {
+                grid(Math.max(PREFETCH, PREBUILD), (dx, dy) => {
                         const [_i, _j] = [i + dx, j + dy]
                         if (!scoped(_i, _j)) return
                         const r = store.ensure(_i, _j)
@@ -75,5 +79,7 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
 }
 
 export type Scene = ReturnType<typeof createScene>
-export type WorkerRequest = 'none' | 'image' | 'full' | 'error'
-export type WorkerResult = { bitmap: ImageBitmap; mesh?: { pos: Float32Array; scl: Float32Array; cnt: number }; occ?: Uint8Array; mode: WorkerRequest }
+export type WorkerMode = 'none' | 'image' | 'full' | 'error'
+export type WorkerMessage = { id: number; i: number; j: number; mode: 'image' | 'full' } | { id: number; abort: true }
+export type WorkerResponse = { id: number; mode: WorkerMode; bitmap?: ImageBitmap; mesh?: { pos: Float32Array; scl: Float32Array; cnt: number }; occ?: Uint8Array; error?: string }
+export type WorkerResult = { bitmap: ImageBitmap; mesh?: { pos: Float32Array; scl: Float32Array; cnt: number }; occ?: Uint8Array; mode: WorkerMode }

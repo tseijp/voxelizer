@@ -12,21 +12,18 @@ export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
 export const CACHE = 32
 export const REGION = 256
+export const TOTAL = REGION * REGION * REGION
 export const PREBUILD = 2 // do not change
 export const PREFETCH = 4 // do not change
 export const ATLAS_URL = 'http://localhost:5500/logs/v4'
 // export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3`
 
 export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => [(i - SCOPE.x0) << 8, 0, (j - SCOPE.y0) << 8]
-export const localIdx = (x: number, y: number, z: number) => (x | 0) + ((y | 0) + (z | 0) * REGION) * REGION
+export const local = (x: number, y: number, z: number) => (x | 0) + ((y | 0) + (z | 0) * REGION) * REGION
 export const posOf = (x = 0, z = 0) => [SCOPE.x0 + (x >> 8), SCOPE.y0 + (z >> 8)]
 export const range = (n = 0) => [...Array(n).keys()]
 export const regionId = (i = 0, j = 0) => i + ROW * j
 export const culling = (VP = M.create(), rx = 0, ry = 0, rz = 0) => visSphere(VP as number[], rx + 128, ry + 128, rz + 128, Math.sqrt(256 * 256 * 3) * 0.5)
-
-export const iterGrid = (range: number, callback: (dx: number, dy: number) => void) => {
-        for (let dx = -range; dx <= range; dx++) for (let dy = -range; dy <= range; dy++) callback(dx, dy)
-}
 
 export const localOf = (wx: number, wy: number, wz: number, ri: number, rj: number): [number, number, number] => {
         const [ox, , oz] = offOf(ri, rj)
@@ -34,31 +31,6 @@ export const localOf = (wx: number, wy: number, wz: number, ri: number, rj: numb
 }
 
 export const withinRange = (dx: number, dy: number, range: number) => Math.abs(dx) < range && Math.abs(dy) < range
-export const sortByDistance = <T>(items: { d: number; value: T }[]) => items.sort((a, b) => a.d - b.d)
-
-export const createPromise = (executor = (resolve: Function) => resolve()) => {
-        let current = new Promise(executor)
-        return {
-                finally: (fun = () => {}) => (current = current.finally(fun)),
-                catch: (fun = () => {}) => (current = current.catch(fun)),
-                then: (fun = () => {}) => (current = current.then(fun)),
-        }
-}
-
-export const createPriority = (executor = (resolve: Function) => resolve()) => {
-        const promise = createPromise(executor)
-        const current = [] as [priority: number, fun: Function][]
-        return {
-                finally: (fun = () => {}) => promise.finally(fun),
-                catch: (fun = () => {}) => promise.catch(fun),
-                then: (fun = () => {}, priority = -1) => {
-                        current.push([priority, fun])
-                        current.sort(([i], [j]) => i - j)
-                        promise.then(async () => await current.shift()![1]())
-                        return promise
-                },
-        }
-}
 
 export const inRegion = (x: number, y: number, z: number) => {
         if (x < 0) return false
@@ -156,8 +128,7 @@ export const uv2m = (x: number, y: number) => {
 }
 
 export const atlas2occ = (data: Uint8ClampedArray, width: number, height: number) => {
-        const total = REGION * REGION * REGION
-        const occ = new Uint8Array(total)
+        const occ = new Uint8Array(TOTAL)
         const pixels = width * height
         for (let i = 0; i < pixels; i++) {
                 const alpha = data[i * 4 + 3]
@@ -166,7 +137,7 @@ export const atlas2occ = (data: Uint8ClampedArray, width: number, height: number
                 const ay = (i / width) | 0
                 const id = uv2m(ax, ay)
                 const [x, y, z] = m2xyz(id)
-                occ[localIdx(x, y, z)] = 1
+                occ[local(x, y, z)] = 1
         }
         return occ
 }

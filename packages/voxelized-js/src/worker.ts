@@ -1,5 +1,6 @@
 import { greedyMesh } from 'voxelized-rs'
-import { atlas2occ, REGION } from './utils'
+import { atlas2occ, ATLAS_URL, REGION } from './utils'
+import type { WorkerMessage, WorkerResponse } from './scene'
 
 const controllers = new Map<number, AbortController>()
 
@@ -23,34 +24,43 @@ const decodeAtlas = (bitmap: ImageBitmap, signal?: AbortSignal) => {
         return { occ, mesh }
 }
 
-self.onmessage = (e: MessageEvent) => {
-        const { id, url, mode, abort } = e.data as { id: number; url: string; mode: 'image' | 'full'; abort?: boolean }
-        if (abort) {
-                const c = controllers.get(id)
+const post = (data: WorkerResponse, transfer?: Transferable[]) => (self as unknown as Worker).postMessage(data, transfer ?? [])
+
+const errorMessage = (err: unknown) => {
+        if (typeof err !== 'object') return 'worker'
+        if (!err) return 'worker'
+        if (!('message' in err)) return 'worker'
+        return (err as Error).message
+}
+
+self.onmessage = (e: MessageEvent<WorkerMessage>) => {
+        const data = e.data
+        if ('abort' in data) {
+                const c = controllers.get(data.id)
                 if (c) c.abort()
-                controllers.delete(id)
+                controllers.delete(data.id)
                 return
         }
-        const controller = new AbortController()
-        controllers.set(id, controller)
+        const { id, i, j, mode } = data
+        const ctrl = new AbortController()
+        controllers.set(id, ctrl)
         const done = () => controllers.delete(id)
-        const task = () =>
-                loadImage(url, controller.signal).then((bitmap) => {
-                        if (controller.signal.aborted) return done()
+        const task = async () => {
+                try {
+                        const bitmap = await loadImage(`${ATLAS_URL}/17_${i}_${j}.png`, ctrl.signal)
+                        if (ctrl.signal.aborted) return done()
                         if (mode === 'image') {
-                                const transfer = [bitmap]
-                                ;(self as unknown as Worker).postMessage({ id, bitmap, mode }, transfer)
+                                post({ id, bitmap, mode }, [bitmap])
                                 return done()
                         }
-                        const { occ, mesh } = decodeAtlas(bitmap, controller.signal)
-                        if (controller.signal.aborted) return done()
-                        const transfer = [bitmap, mesh.pos.buffer, mesh.scl.buffer, occ.buffer]
-                        ;(self as unknown as Worker).postMessage({ id, bitmap, mesh, occ, mode }, transfer)
-                        return done()
-                })
-        task().catch((err: unknown) => {
-                done()
-                const error = typeof err === 'object' && err && 'message' in (err as any) ? (err as any).message : 'worker'
-                ;(self as unknown as Worker).postMessage({ id, mode: 'error', error })
-        })
+                        const { occ, mesh } = decodeAtlas(bitmap, ctrl.signal)
+                        if (ctrl.signal.aborted) return done()
+                        post({ id, bitmap, mesh, occ, mode }, [bitmap, mesh.pos.buffer, mesh.scl.buffer, occ.buffer])
+                        done()
+                } catch (err) {
+                        done()
+                        post({ id, mode: 'error', error: errorMessage(err) })
+                }
+        }
+        task()
 }

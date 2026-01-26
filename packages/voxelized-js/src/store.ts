@@ -3,7 +3,7 @@ import { createQueues } from './queue'
 import { CACHE, regionId } from './utils'
 import type { Mesh } from './mesh'
 import type { Region } from './region'
-import type { WorkerRequest, WorkerResult } from './scene'
+import type { WorkerResponse, WorkerResult } from './scene'
 
 type Pending = { resolve: (v: WorkerResult) => void; reject: (e?: unknown) => void; t: number }
 
@@ -18,8 +18,8 @@ const createBridge = () => {
                 clearTimeout(p.t)
                 fn(p)
         }
-        worker.onmessage = (e: MessageEvent) => {
-                const { id, ...rest } = e.data as WorkerResult & { id: number; error?: string }
+        worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+                const { id, ...rest } = e.data
                 if (rest.mode === 'error')
                         return _settle(id, (p) => {
                                 console.warn('worker error', rest)
@@ -31,7 +31,7 @@ const createBridge = () => {
                 console.warn('worker crash', e.message)
                 pending.forEach((_, id) => _settle(id, (q) => q.reject(e.message)))
         }
-        const run = (payload: { url: string; mode: WorkerRequest }, signal?: AbortSignal) => {
+        const run = (i: number, j: number, mode: 'image' | 'full', signal?: AbortSignal) => {
                 const id = seq++
                 let resolve = (_: WorkerResult) => {}
                 let reject = (_?: unknown) => {}
@@ -50,7 +50,7 @@ const createBridge = () => {
                         _settle(id, (p) => p.reject('abort'))
                         worker.postMessage({ id, abort: true })
                 })
-                worker.postMessage({ id, ...payload })
+                worker.postMessage({ id, i, j, mode })
                 return promise
         }
         return { run }
@@ -60,11 +60,11 @@ export const createStore = (mesh: Mesh, queues = createQueues(), worker = create
         const map = new Map<number, Region>()
         const ensure = (rx = 0, ry = 0) => {
                 const id = regionId(rx, ry)
-                const existing = map.get(id)
-                if (existing) return existing
-                const region = createRegion(mesh, rx, ry, queues, worker)
-                map.set(id, region)
-                return region
+                const got = map.get(id)
+                if (got) return got
+                const r = createRegion(mesh, rx, ry, queues, worker)
+                map.set(id, r)
+                return r
         }
         const prune = (active: Set<Region>, i: number, j: number) => {
                 if (map.size <= CACHE) return

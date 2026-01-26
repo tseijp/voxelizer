@@ -1,17 +1,17 @@
-import { ATLAS_URL, inRegion, localIdx, offOf, regionId, SCOPE } from './utils'
+import { inRegion, local, offOf, regionId, SCOPE } from './utils'
 import type { Mesh } from './mesh'
 import type { Queues, QueueTask } from './queue'
-import type { WorkerRequest, WorkerResult } from './scene'
+import type { WorkerMode, WorkerResult } from './scene'
 import type { WorkerBridge } from './store'
 
 export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Queues, worker: WorkerBridge) => {
         let isDisposed = false
         let isMeshed = false
-        let pending: Promise<WorkerResult> | undefined
-        let queued: QueueTask
-        let result: WorkerResult
-        let level = 'none' as WorkerRequest
-        let request = 'none' as WorkerRequest
+        let pending: Promise<WorkerResult | undefined> | undefined
+        let queued: QueueTask | undefined
+        let result: WorkerResult | undefined
+        let level = 'none' as WorkerMode
+        let request = 'none' as WorkerMode
         let ticket = 0
         let failed = 0
         const _fetch = async (promise: Promise<WorkerResult>, _ticket: number) => {
@@ -31,30 +31,30 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                         return result
                 }
         }
-        const _request = (mode: WorkerRequest, priority = 0) => {
+        const _request = (mode: 'image' | 'full', priority = 0) => {
                 if (performance.now() < failed) return Promise.resolve(result)
                 if (isDisposed) return Promise.resolve(result)
                 if (level === 'full') return Promise.resolve(result)
-                if (level === 'image' && mode === 'full') pending = undefined as unknown as Promise<WorkerResult>
-                if (!pending) {
+                if (level === 'image' && mode === 'full') pending = undefined
+                if (pending) {
+                        queues.tune(queued, priority)
+                } else {
                         ticket++
-                        const { promise, task } = queues.schedule((signal) => worker.run({ url: `${ATLAS_URL}/17_${i}_${j}.png`, mode }, signal), priority, mode)
+                        const { promise, task } = queues.schedule((signal) => worker.run(i, j, mode, signal), priority, mode)
                         queued = task
                         request = mode
                         pending = _fetch(promise, ticket)
-                } else {
-                        queues.tune(queued, priority)
                 }
                 return pending
         }
         const _abort = () => {
                 ticket++
                 queues.abort(queued)
-                pending = undefined as unknown as Promise<WorkerResult>
-                queued = undefined as unknown as QueueTask
+                pending = undefined
+                queued = undefined
                 request = 'none'
         }
-        const prefetch = async (mode: WorkerRequest, priority = 0) => await _request(mode, priority)
+        const prefetch = async (mode: 'image' | 'full', priority = 0) => await _request(mode, priority)
         const image = async (priority = 0) => {
                 if (result) return result.bitmap
                 const res = await _request('image', priority)
@@ -70,9 +70,9 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
         const pick = (lx = 0, ly = 0, lz = 0) => {
                 if (!result || !result.occ) return 0
                 if (!inRegion(lx, ly, lz)) return 0
-                return result.occ[localIdx(lx, ly, lz)]
+                return result.occ[local(lx, ly, lz)]
         }
-        const tune = (mode: WorkerRequest, priority = 0) => {
+        const tune = (mode: WorkerMode, priority = 0) => {
                 if (mode === 'none') return _abort()
                 if (mode === 'image') {
                         if (level === 'full') return
@@ -88,7 +88,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 isMeshed = false
                 failed = 0
                 _abort()
-                result = undefined as unknown as WorkerResult
+                result = undefined
                 level = 'none'
                 return true
         }

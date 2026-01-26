@@ -1,4 +1,4 @@
-const createTask = <T>(resolve: (_: T) => void, start: (signal: AbortSignal) => Promise<T>, priority = 0, tag = '') => {
+const createTask = <T>(resolve: (_: T) => void, start: (signal: AbortSignal) => Promise<T>, priority = 0, tag = ''): QueueTask => {
         return { start, resolve, priority, started: false, isHigh: priority > 0, ctrl: new AbortController(), tag, done: false } as QueueTask
 }
 
@@ -38,7 +38,7 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
                         })
                         .catch(() => {
                                 if (task.done) return
-                                task.resolve(undefined as unknown as QueueValue)
+                                task.resolve(undefined)
                         })
                         .finally(() => _finish(task))
         }
@@ -52,7 +52,7 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
                                 return tick()
                         }
                         if (low.size() <= 0 || _low >= lowLimit) return
-                        _launch(low.shift() as QueueTask, false)
+                        _launch(low.shift(), false)
                         return tick()
                 }
                 tick()
@@ -98,13 +98,13 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
                 if (!task || task.done) return
                 if (task.started) {
                         task.ctrl.abort()
-                        task.resolve(undefined as unknown as QueueValue)
+                        task.resolve(undefined)
                         _finish(task)
                         return
                 }
                 ;(task.isHigh ? high : low).remove(task)
                 task.done = true
-                task.resolve(undefined as unknown as QueueValue)
+                task.resolve(undefined)
                 _pump()
         }
         return { schedule, tune, abort }
@@ -112,8 +112,7 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
 
 export type Queue = ReturnType<typeof createQueue>
 export type Queues = ReturnType<typeof createQueues>
-type QueueValue = unknown
-export type QueueTask<T = QueueValue> = {
+export type QueueTask<T = unknown> = {
         start: (signal: AbortSignal) => Promise<T>
         resolve: (data: T) => void
         priority: number
