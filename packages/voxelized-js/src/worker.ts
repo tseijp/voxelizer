@@ -18,6 +18,7 @@ const decodeAtlas = (bitmap: ImageBitmap, signal?: AbortSignal) => {
         ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height)
         if (signal?.aborted) return { occ: undefined as unknown as Uint8Array, mesh: undefined as unknown as any }
         const data = ctx.getImageData(0, 0, bitmap.width, bitmap.height).data
+        if (signal?.aborted) return { occ: undefined as unknown as Uint8Array, mesh: undefined as unknown as any }
         const occ = atlas2occ(data, bitmap.width, bitmap.height)
         if (signal?.aborted) return { occ: undefined as unknown as Uint8Array, mesh: undefined as unknown as any }
         const mesh = greedyMesh(occ, REGION) as any
