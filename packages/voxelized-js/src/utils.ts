@@ -10,11 +10,11 @@ export const SCOPE = { x0: 116358, x1: 116467, y0: 51619, y1: 51626 }
 
 export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
-export const CACHE = 32
 export const REGION = 256
 export const TOTAL = REGION * REGION * REGION
-export const PREBUILD = 2 // do not change
-export const PREFETCH = 4 // do not change
+export const PREPURGE = 32
+export const PREBUILD = 2
+export const PREFETCH = 4
 export const ATLAS_URL = 'http://localhost:5500/logs/v4'
 // export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3`
 

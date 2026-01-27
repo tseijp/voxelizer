@@ -111,8 +111,11 @@ export const createSlots = (size = 16) => {
                 const inBudget = timer(budget)
                 for (; cursor < pending.length; cursor++) {
                         if (!inBudget()) break
+                        const r = pending[cursor]
                         const dt = Math.max(0, budget - (performance.now() - start))
-                        if (!_assign(c, pg, pending[cursor], dt)) return false
+                        if (_assign(c, pg, r, dt)) continue
+                        if (r.fetching()) return false
+                        if (r.bitmap()) return false
                 }
                 return cursor >= pending.length
         }

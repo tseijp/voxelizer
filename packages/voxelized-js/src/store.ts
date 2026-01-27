@@ -1,6 +1,6 @@
 import { createRegion } from './region'
 import { createQueues } from './queue'
-import { CACHE, regionId } from './utils'
+import { PREPURGE, regionId } from './utils'
 import type { Mesh } from './mesh'
 import type { Region } from './region'
 import type { WorkerResponse, WorkerResult } from './scene'
@@ -80,11 +80,11 @@ export const createStore = (mesh: Mesh, queues = createQueues(), worker = create
                 return r
         }
         const prune = (active: Set<Region>, i: number, j: number) => {
-                if (map.size <= CACHE) return
+                if (map.size <= PREPURGE) return
                 const dist = (r: Region) => Math.hypot(r.i - i, r.j - j)
                 const list = [...map.values()].filter((r) => !active.has(r)).sort((a, b) => dist(b) - dist(a))
                 for (const r of list) {
-                        if (map.size <= CACHE) break
+                        if (map.size <= PREPURGE) break
                         map.delete(r.id)
                         r.dispose()
                 }

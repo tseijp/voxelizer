@@ -23,7 +23,10 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
         const _fetch = async (promise: Promise<WorkerResult>, _ticket: number, mode: 'image' | 'full') => {
                 try {
                         const res = await promise
-                        if (isDisposed || _ticket !== ticket) return res
+                        if (isDisposed || _ticket !== ticket) {
+                                _done()
+                                return res
+                        }
                         if (!res || !res.bitmap) {
                                 failed = performance.now() + 1500
                                 level = 'none'
