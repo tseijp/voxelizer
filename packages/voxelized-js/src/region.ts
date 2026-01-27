@@ -1,9 +1,8 @@
 import { inRegion, local, offOf, regionId, SCOPE } from './utils'
-import { debugEnabled, emitDebug } from './debug'
+import { debugEnabled, debugTaskStart, debugTaskDone, debugTaskAbort, debugFlush } from './debug'
 import type { Mesh } from './mesh'
 import type { Queues, QueueTask } from './queue'
 import type { WorkerMode, WorkerResult } from './scene'
-import type { DebugTaskPhase } from './debug'
 import type { WorkerBridge } from './store'
 
 export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Queues, worker: WorkerBridge) => {
@@ -16,27 +15,23 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
         let request = 'none' as WorkerMode
         let ticket = 0
         let failed = 0
-        const log = (phase: DebugTaskPhase, mode: WorkerMode, t = ticket) => {
-                if (!debugEnabled()) return
-                emitDebug({ type: 'task', phase, mode, i, j, ticket: t, ts: performance.now() })
-        }
-        const _fetch = async (promise: Promise<WorkerResult>, _ticket: number, mode: WorkerMode) => {
+        const _fetch = async (promise: Promise<WorkerResult>, _ticket: number, mode: 'image' | 'full') => {
                 try {
                         const res = await promise
                         if (isDisposed || _ticket !== ticket) return res
                         if (!res || !res.bitmap) {
                                 failed = performance.now() + 1500
                                 level = 'none'
-                                log('done', mode, _ticket)
+                                if (debugEnabled()) { debugTaskDone(i, j, mode); debugFlush() }
                                 return result
                         }
                         level = res.mesh ? 'full' : 'image'
-                        log('done', mode, _ticket)
+                        if (debugEnabled()) { debugTaskDone(i, j, mode); debugFlush() }
                         return (result = res)
                 } catch {
                         failed = performance.now() + 1500
                         level = 'none'
-                        log('done', mode, _ticket)
+                        if (debugEnabled()) { debugTaskDone(i, j, mode); debugFlush() }
                         return result
                 }
         }
@@ -52,14 +47,13 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                         const { promise, task } = queues.schedule((signal) => worker.run(i, j, mode, signal), priority, mode)
                         queued = task
                         request = mode
-                        log('start', mode, ticket)
+                        if (debugEnabled()) { debugTaskStart(i, j, mode); debugFlush() }
                         pending = _fetch(promise, ticket, mode)
                 }
                 return pending
         }
         const _abort = () => {
-                const t = ticket
-                if (request !== 'none') log('abort', request, t)
+                if (request !== 'none' && debugEnabled()) { debugTaskAbort(i, j); debugFlush() }
                 ticket++
                 queues.abort(queued)
                 pending = undefined

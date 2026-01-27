@@ -1,6 +1,6 @@
 import { createSlots } from './slot'
 import { createStore } from './store'
-import { debugEnabled, emitDebug } from './debug'
+import { debugEnabled, debugSetAnchor, debugSetState, debugPrune, debugFlush } from './debug'
 import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId, withinRange } from './utils'
 import type { Camera } from './camera'
 import type { Mesh } from './mesh'
@@ -32,31 +32,31 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                 keep.sort((a, b) => a.d - b.d)
                 regions = new Set(keep.slice(0, SLOT).map((k) => k.r))
                 const active = new Set<Region>()
+                const activeKeys = new Set<string>()
                 regions.forEach((r) => {
                         r.tune('full', 3)
                         active.add(r)
+                        activeKeys.add(`${r.i}:${r.j}`)
+                        if (debugEnabled()) debugSetState(r.i, r.j, 'visible')
                 })
                 prebuild.forEach((r) => {
                         if (active.has(r)) return
                         r.tune('full', 2)
                         active.add(r)
+                        activeKeys.add(`${r.i}:${r.j}`)
+                        if (debugEnabled()) debugSetState(r.i, r.j, 'prebuild')
                 })
                 prefetch.forEach((r) => {
                         if (active.has(r)) return
                         r.tune('image', 1)
                         active.add(r)
+                        activeKeys.add(`${r.i}:${r.j}`)
+                        if (debugEnabled()) debugSetState(r.i, r.j, 'prefetch')
                 })
                 if (debugEnabled()) {
-                        const toPairs = (list: Iterable<Region>) => Array.from(list).map((r) => [r.i, r.j])
-                        emitDebug({
-                                type: 'view',
-                                ts: performance.now(),
-                                anchor: [i, j],
-                                visible: toPairs(regions),
-                                prebuild: toPairs(prebuild),
-                                prefetch: toPairs(prefetch),
-                                slots: slots.debug(),
-                        })
+                        debugSetAnchor(i, j)
+                        debugPrune(activeKeys)
+                        debugFlush()
                 }
                 store.map.forEach((r) => {
                         if (active.has(r)) return

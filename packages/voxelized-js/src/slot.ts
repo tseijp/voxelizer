@@ -1,4 +1,4 @@
-import { debugEnabled, emitDebug } from './debug'
+import { debugEnabled, debugSetCache, debugFlush } from './debug'
 import { range, timer } from './utils'
 import type { Region } from './region'
 
@@ -9,10 +9,11 @@ const createSlot = (index = 0) => {
         let region: Region
         let isReady = false
         let pending: ImageBitmap | undefined
-        const report = (action: 'set' | 'release' | 'ready') => {
+        const report = (cache: 'loading' | 'purged' | 'cached') => {
                 if (!debugEnabled()) return
                 if (!region) return
-                emitDebug({ type: 'cache', action, i: region.i, j: region.j, slot: index, ts: performance.now() })
+                debugSetCache(region.i, region.j, cache)
+                debugFlush()
         }
         const _reset = () => {
                 pending = undefined
@@ -38,7 +39,7 @@ const createSlot = (index = 0) => {
                 c.uniform1i(atlas, index)
                 c.uniform3fv(offset, new Float32Array([region.x, region.y, region.z]))
                 isReady = true
-                report('ready')
+                report('cached')
                 return true
         }
         const upload = (c: WebGL2RenderingContext, pg: WebGLProgram, budget = 6) => {
@@ -63,14 +64,14 @@ const createSlot = (index = 0) => {
         const release = () => {
                 if (!region) return
                 region.slot = -1
+                report('purged')
                 region = undefined as unknown as Region
-                report('release')
                 _reset()
         }
         const set = (r: Region, index = 0) => {
                 region = r
                 region.slot = index
-                report('set')
+                report('loading')
                 _reset()
         }
         return { ready, release, set, isReady: () => isReady, region: () => region }
@@ -115,15 +116,5 @@ export const createSlots = (size = 16) => {
                 }
                 return cursor >= pending.length
         }
-        const debug = () => {
-                if (!debugEnabled()) return [] as { i: number; j: number; slot: number; ready: boolean }[]
-                return owner
-                        .map((slot, slotIndex) => {
-                                const r = slot.region()
-                                if (!r) return undefined
-                                return { i: r.i, j: r.j, slot: slotIndex, ready: slot.isReady() }
-                        })
-                        .filter(Boolean) as { i: number; j: number; slot: number; ready: boolean }[]
-        }
-        return { begin, step, debug }
+        return { begin, step }
 }
