@@ -1,8 +1,8 @@
 import { createSlots } from './slot'
 import { createStore } from './store'
-import { debugSetAnchor, debugSetState, debugPrune } from './debug'
 import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId } from './utils'
 import type { Camera } from './camera'
+import type { Debug } from './debug'
 import type { Mesh } from './mesh'
 import type { Region } from './region'
 
@@ -12,9 +12,9 @@ const grid = (range: number, callback: (dx: number, dy: number) => void) => {
         for (let dx = -range; dx <= range; dx++) for (let dy = -range; dy <= range; dy++) callback(dx, dy)
 }
 
-export const createScene = (mesh: Mesh, cam: Camera) => {
+export const createScene = (mesh: Mesh, cam: Camera, debug?: Debug) => {
         const slots = createSlots(SLOT)
-        const store = createStore(mesh)
+        const store = createStore(mesh, debug)
         let regions = new Set<Region>()
         let isLoading = false
         let pt = performance.now()
@@ -36,7 +36,7 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                         r.tune('full', 3)
                         active.add(r)
                         activeKeys.add(`${r.i}:${r.j}`)
-                        debugSetState(r.i, r.j, 'visible')
+                        debug?.setState(r.i, r.j, 'visible')
                 })
                 let prebuildCount = 0
                 for (const { r } of all) {
@@ -45,7 +45,7 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                         r.tune('full', 2)
                         active.add(r)
                         activeKeys.add(`${r.i}:${r.j}`)
-                        debugSetState(r.i, r.j, 'prebuild')
+                        debug?.setState(r.i, r.j, 'prebuild')
                         prebuildCount++
                 }
                 let prefetchCount = 0
@@ -55,11 +55,11 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                         r.tune('image', 1)
                         active.add(r)
                         activeKeys.add(`${r.i}:${r.j}`)
-                        debugSetState(r.i, r.j, 'prefetch')
+                        debug?.setState(r.i, r.j, 'prefetch')
                         prefetchCount++
                 }
-                debugSetAnchor(i, j)
-                debugPrune(activeKeys)
+                debug?.setAnchor(i, j)
+                debug?.prune(activeKeys)
                 store.map.forEach((r) => {
                         if (active.has(r)) return
                         r.tune('none', -1)

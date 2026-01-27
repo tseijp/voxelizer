@@ -1,11 +1,11 @@
 import { inRegion, local, offOf, regionId, SCOPE } from './utils'
-import { debugTaskStart, debugTaskDone, debugTaskAbort, debugSetCache } from './debug'
+import type { Debug } from './debug'
 import type { Mesh } from './mesh'
 import type { Queues, QueueTask } from './queue'
 import type { WorkerMode, WorkerResult } from './scene'
 import type { WorkerBridge } from './store'
 
-export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Queues, worker: WorkerBridge) => {
+export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Queues, worker: WorkerBridge, debug?: Debug) => {
         let isMeshed = false
         let pending: Promise<WorkerResult | undefined> | undefined
         let queued: QueueTask | undefined
@@ -29,19 +29,19 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                         if (!res || !res.bitmap) {
                                 failed = performance.now() + 1500
                                 level = 'none'
-                                debugTaskDone(i, j, mode)
+                                debug?.taskDone(i, j, mode)
                                 _done()
                                 return result
                         }
                         level = res.mesh ? 'full' : 'image'
-                        debugSetCache(i, j, mode === 'full' ? 'cached' : 'empty')
-                        debugTaskDone(i, j, mode)
+                        debug?.setCache(i, j, mode === 'full' ? 'cached' : 'empty')
+                        debug?.taskDone(i, j, mode)
                         _done()
                         return (result = res)
                 } catch {
                         failed = performance.now() + 1500
                         level = 'none'
-                        debugTaskDone(i, j, mode)
+                        debug?.taskDone(i, j, mode)
                         _done()
                         return result
                 }
@@ -57,14 +57,14 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                         const { promise, task } = queues.schedule((signal) => worker.run(i, j, mode, signal), priority, mode)
                         queued = task
                         request = mode
-                        debugSetCache(i, j, 'loading')
-                        debugTaskStart(i, j, mode)
+                        debug?.setCache(i, j, 'loading')
+                        debug?.taskStart(i, j, mode)
                         pending = _fetch(promise, ticket, mode)
                 }
                 return pending
         }
         const _abort = () => {
-                if (request !== 'none') debugTaskAbort(i, j)
+                if (request !== 'none') debug?.taskAbort(i, j)
                 ticket++
                 queues.abort(queued)
                 pending = undefined
@@ -106,7 +106,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 _abort()
                 result = undefined
                 level = 'none'
-                debugSetCache(i, j, 'purged')
+                debug?.setCache(i, j, 'purged')
                 return true
         }
         const reset = () => void (isMeshed = false)

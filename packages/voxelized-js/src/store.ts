@@ -1,6 +1,7 @@
 import { createRegion } from './region'
 import { createQueues } from './queue'
 import { PREPURGE, regionId } from './utils'
+import type { Debug } from './debug'
 import type { Mesh } from './mesh'
 import type { Region } from './region'
 import type { WorkerResponse, WorkerResult } from './scene'
@@ -69,13 +70,13 @@ const createBridge = () => {
         return { run }
 }
 
-export const createStore = (mesh: Mesh, queues = createQueues(), worker = createBridge()) => {
+export const createStore = (mesh: Mesh, debug?: Debug, queues = createQueues(), worker = createBridge()) => {
         const map = new Map<number, Region>()
         const ensure = (rx = 0, ry = 0) => {
                 const id = regionId(rx, ry)
                 const got = map.get(id)
                 if (got) return got
-                const r = createRegion(mesh, rx, ry, queues, worker)
+                const r = createRegion(mesh, rx, ry, queues, worker, debug)
                 map.set(id, r)
                 return r
         }
