@@ -69,6 +69,7 @@ export const debugSetCache = (i: number, j: number, cache: CellCache) => {
         if (data.cache === cache) return
         data.cache = cache
         dirty = true
+        if (cache !== 'loading') debugFlush()
 }
 
 export const debugTaskStart = (i: number, j: number, mode: 'image' | 'full') => {

@@ -1,5 +1,5 @@
 import { inRegion, local, offOf, regionId, SCOPE } from './utils'
-import { debugTaskStart, debugTaskDone, debugTaskAbort } from './debug'
+import { debugTaskStart, debugTaskDone, debugTaskAbort, debugSetCache } from './debug'
 import type { Mesh } from './mesh'
 import type { Queues, QueueTask } from './queue'
 import type { WorkerMode, WorkerResult } from './scene'
@@ -34,6 +34,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                                 return result
                         }
                         level = res.mesh ? 'full' : 'image'
+                        debugSetCache(i, j, mode === 'full' ? 'cached' : 'empty')
                         debugTaskDone(i, j, mode)
                         _done()
                         return (result = res)
@@ -56,6 +57,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                         const { promise, task } = queues.schedule((signal) => worker.run(i, j, mode, signal), priority, mode)
                         queued = task
                         request = mode
+                        debugSetCache(i, j, 'loading')
                         debugTaskStart(i, j, mode)
                         pending = _fetch(promise, ticket, mode)
                 }
@@ -104,6 +106,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 _abort()
                 result = undefined
                 level = 'none'
+                debugSetCache(i, j, 'purged')
                 return true
         }
         const reset = () => void (isMeshed = false)
