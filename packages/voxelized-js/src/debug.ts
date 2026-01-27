@@ -49,11 +49,14 @@ const ensure = (i: number, j: number): CellData => {
 }
 
 export const debugSetAnchor = (i: number, j: number) => {
+        if (!debugEnabled()) return
         anchor = [i, j]
         dirty = true
+        debugFlush()
 }
 
 export const debugSetState = (i: number, j: number, state: CellState) => {
+        if (!debugEnabled()) return
         const data = ensure(i, j)
         if (data.state === state) return
         data.state = state
@@ -61,6 +64,7 @@ export const debugSetState = (i: number, j: number, state: CellState) => {
 }
 
 export const debugSetCache = (i: number, j: number, cache: CellCache) => {
+        if (!debugEnabled()) return
         const data = ensure(i, j)
         if (data.cache === cache) return
         data.cache = cache
@@ -68,13 +72,16 @@ export const debugSetCache = (i: number, j: number, cache: CellCache) => {
 }
 
 export const debugTaskStart = (i: number, j: number, mode: 'image' | 'full') => {
+        if (!debugEnabled()) return
         const data = ensure(i, j)
         if (mode === 'image') data.startImage = performance.now()
         if (mode === 'full') data.startFull = performance.now()
         dirty = true
+        debugFlush()
 }
 
 export const debugTaskDone = (i: number, j: number, mode: 'image' | 'full') => {
+        if (!debugEnabled()) return
         const data = ensure(i, j)
         const now = performance.now()
         if (mode === 'image' && data.startImage) {
@@ -86,21 +93,26 @@ export const debugTaskDone = (i: number, j: number, mode: 'image' | 'full') => {
                 data.startFull = undefined
         }
         dirty = true
+        debugFlush()
 }
 
 export const debugTaskAbort = (i: number, j: number) => {
+        if (!debugEnabled()) return
         const data = ensure(i, j)
         data.startImage = undefined
         data.startFull = undefined
         dirty = true
+        debugFlush()
 }
 
 export const debugPrune = (active: Set<string>) => {
+        if (!debugEnabled()) return
         cells.forEach((data, k) => {
                 if (active.has(k)) return
                 data.state = 'idle'
         })
         dirty = true
+        debugFlush()
 }
 
 export const debugFlush = () => {

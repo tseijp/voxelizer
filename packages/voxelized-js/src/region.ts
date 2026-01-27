@@ -1,5 +1,5 @@
 import { inRegion, local, offOf, regionId, SCOPE } from './utils'
-import { debugEnabled, debugTaskStart, debugTaskDone, debugTaskAbort, debugFlush } from './debug'
+import { debugTaskStart, debugTaskDone, debugTaskAbort } from './debug'
 import type { Mesh } from './mesh'
 import type { Queues, QueueTask } from './queue'
 import type { WorkerMode, WorkerResult } from './scene'
@@ -27,27 +27,18 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                         if (!res || !res.bitmap) {
                                 failed = performance.now() + 1500
                                 level = 'none'
-                                if (debugEnabled()) {
-                                        debugTaskDone(i, j, mode)
-                                        debugFlush()
-                                }
+                                debugTaskDone(i, j, mode)
                                 _done()
                                 return result
                         }
                         level = res.mesh ? 'full' : 'image'
-                        if (debugEnabled()) {
-                                debugTaskDone(i, j, mode)
-                                debugFlush()
-                        }
+                        debugTaskDone(i, j, mode)
                         _done()
                         return (result = res)
                 } catch {
                         failed = performance.now() + 1500
                         level = 'none'
-                        if (debugEnabled()) {
-                                debugTaskDone(i, j, mode)
-                                debugFlush()
-                        }
+                        debugTaskDone(i, j, mode)
                         _done()
                         return result
                 }
@@ -65,19 +56,13 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                         const { promise, task } = queues.schedule((signal) => worker.run(i, j, mode, signal), priority, mode)
                         queued = task
                         request = mode
-                        if (debugEnabled()) {
-                                debugTaskStart(i, j, mode)
-                                debugFlush()
-                        }
+                        debugTaskStart(i, j, mode)
                         pending = _fetch(promise, ticket, mode)
                 }
                 return pending
         }
         const _abort = () => {
-                if (request !== 'none' && debugEnabled()) {
-                        debugTaskAbort(i, j)
-                        debugFlush()
-                }
+                if (request !== 'none') debugTaskAbort(i, j)
                 ticket++
                 queues.abort(queued)
                 pending = undefined

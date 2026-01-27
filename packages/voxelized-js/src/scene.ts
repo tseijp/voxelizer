@@ -1,6 +1,6 @@
 import { createSlots } from './slot'
 import { createStore } from './store'
-import { debugEnabled, debugSetAnchor, debugSetState, debugPrune, debugFlush } from './debug'
+import { debugSetAnchor, debugSetState, debugPrune } from './debug'
 import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId, withinRange } from './utils'
 import type { Camera } from './camera'
 import type { Mesh } from './mesh'
@@ -37,27 +37,24 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                         r.tune('full', 3)
                         active.add(r)
                         activeKeys.add(`${r.i}:${r.j}`)
-                        if (debugEnabled()) debugSetState(r.i, r.j, 'visible')
+                        debugSetState(r.i, r.j, 'visible')
                 })
                 prebuild.forEach((r) => {
                         if (active.has(r)) return
                         r.tune('full', 2)
                         active.add(r)
                         activeKeys.add(`${r.i}:${r.j}`)
-                        if (debugEnabled()) debugSetState(r.i, r.j, 'prebuild')
+                        debugSetState(r.i, r.j, 'prebuild')
                 })
                 prefetch.forEach((r) => {
                         if (active.has(r)) return
                         r.tune('image', 1)
                         active.add(r)
                         activeKeys.add(`${r.i}:${r.j}`)
-                        if (debugEnabled()) debugSetState(r.i, r.j, 'prefetch')
+                        debugSetState(r.i, r.j, 'prefetch')
                 })
-                if (debugEnabled()) {
-                        debugSetAnchor(i, j)
-                        debugPrune(activeKeys)
-                        debugFlush()
-                }
+                debugSetAnchor(i, j)
+                debugPrune(activeKeys)
                 store.map.forEach((r) => {
                         if (active.has(r)) return
                         r.tune('none', -1)
