@@ -27,18 +27,27 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                         if (!res || !res.bitmap) {
                                 failed = performance.now() + 1500
                                 level = 'none'
-                                if (debugEnabled()) { debugTaskDone(i, j, mode); debugFlush() }
+                                if (debugEnabled()) {
+                                        debugTaskDone(i, j, mode)
+                                        debugFlush()
+                                }
                                 _done()
                                 return result
                         }
                         level = res.mesh ? 'full' : 'image'
-                        if (debugEnabled()) { debugTaskDone(i, j, mode); debugFlush() }
+                        if (debugEnabled()) {
+                                debugTaskDone(i, j, mode)
+                                debugFlush()
+                        }
                         _done()
                         return (result = res)
                 } catch {
                         failed = performance.now() + 1500
                         level = 'none'
-                        if (debugEnabled()) { debugTaskDone(i, j, mode); debugFlush() }
+                        if (debugEnabled()) {
+                                debugTaskDone(i, j, mode)
+                                debugFlush()
+                        }
                         _done()
                         return result
                 }
@@ -47,6 +56,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 if (performance.now() < failed) return Promise.resolve(result)
                 if (isDisposed) return Promise.resolve(result)
                 if (level === 'full') return Promise.resolve(result)
+                if (level === 'image' && mode === 'image') return Promise.resolve(result)
                 if (level === 'image' && mode === 'full') pending = undefined
                 if (pending) {
                         queues.tune(queued, priority)
@@ -55,13 +65,19 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                         const { promise, task } = queues.schedule((signal) => worker.run(i, j, mode, signal), priority, mode)
                         queued = task
                         request = mode
-                        if (debugEnabled()) { debugTaskStart(i, j, mode); debugFlush() }
+                        if (debugEnabled()) {
+                                debugTaskStart(i, j, mode)
+                                debugFlush()
+                        }
                         pending = _fetch(promise, ticket, mode)
                 }
                 return pending
         }
         const _abort = () => {
-                if (request !== 'none' && debugEnabled()) { debugTaskAbort(i, j); debugFlush() }
+                if (request !== 'none' && debugEnabled()) {
+                        debugTaskAbort(i, j)
+                        debugFlush()
+                }
                 ticket++
                 queues.abort(queued)
                 pending = undefined
