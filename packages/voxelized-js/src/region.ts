@@ -6,7 +6,6 @@ import type { WorkerMode, WorkerResult } from './scene'
 import type { WorkerBridge } from './store'
 
 export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Queues, worker: WorkerBridge) => {
-        let isDisposed = false
         let isMeshed = false
         let pending: Promise<WorkerResult | undefined> | undefined
         let queued: QueueTask | undefined
@@ -23,7 +22,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
         const _fetch = async (promise: Promise<WorkerResult>, _ticket: number, mode: 'image' | 'full') => {
                 try {
                         const res = await promise
-                        if (isDisposed || _ticket !== ticket) {
+                        if (_ticket !== ticket) {
                                 _done()
                                 return res
                         }
@@ -48,13 +47,11 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
         }
         const _request = (mode: 'image' | 'full', priority = 0) => {
                 if (performance.now() < failed) return Promise.resolve(result)
-                if (isDisposed) return Promise.resolve(result)
                 if (level === 'full') return Promise.resolve(result)
                 if (level === 'image' && mode === 'image') return Promise.resolve(result)
                 if (level === 'image' && mode === 'full') pending = undefined
-                if (pending) {
-                        queues.tune(queued, priority)
-                } else {
+                if (pending) queues.tune(queued, priority)
+                else {
                         ticket++
                         const { promise, task } = queues.schedule((signal) => worker.run(i, j, mode, signal), priority, mode)
                         queued = task
@@ -79,7 +76,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 return res?.bitmap!
         }
         const build = (index = 0) => {
-                if (isMeshed || isDisposed) return true
+                if (isMeshed) return true
                 if (!result || !result.mesh) return false
                 mesh.merge({ pos: result.mesh.pos, scl: result.mesh.scl, cnt: result.mesh.cnt }, index, 0, 0, 0)
                 isMeshed = true
@@ -102,7 +99,6 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 _request('full', priority)
         }
         const dispose = () => {
-                isDisposed = true
                 isMeshed = false
                 failed = 0
                 _abort()
