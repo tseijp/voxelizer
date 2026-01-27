@@ -1,10 +1,12 @@
 import { createSlots } from './slot'
 import { createStore } from './store'
 import { debugSetAnchor, debugSetState, debugPrune } from './debug'
-import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId, withinRange } from './utils'
+import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId } from './utils'
 import type { Camera } from './camera'
 import type { Mesh } from './mesh'
 import type { Region } from './region'
+
+const RANGE = 8
 
 const grid = (range: number, callback: (dx: number, dy: number) => void) => {
         for (let dx = -range; dx <= range; dx++) for (let dy = -range; dy <= range; dy++) callback(dx, dy)
@@ -17,20 +19,17 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
         let isLoading = false
         let pt = performance.now()
         const vis = () => {
-                const keep: { d: number; r: Region }[] = []
-                const prefetch = new Set<Region>()
-                const prebuild = new Set<Region>()
+                const all: { d: number; r: Region }[] = []
                 const [i, j] = posOf(cam.pos[0], cam.pos[2])
-                grid(Math.max(PREFETCH, PREBUILD), (dx, dy) => {
+                grid(RANGE, (dx, dy) => {
                         const [_i, _j] = [i + dx, j + dy]
                         if (!scoped(_i, _j)) return
                         const r = store.ensure(_i, _j)
-                        if (withinRange(dx, dy, PREFETCH)) prefetch.add(r)
-                        if (withinRange(dx, dy, PREBUILD)) prebuild.add(r)
-                        if (culling(cam.MVP, ...offOf(_i, _j))) keep.push({ d: Math.hypot(dx, dy), r })
+                        all.push({ d: Math.hypot(dx, dy), r })
                 })
-                keep.sort((a, b) => a.d - b.d)
-                regions = new Set(keep.slice(0, SLOT).map((k) => k.r))
+                all.sort((a, b) => a.d - b.d)
+                const visible = all.filter(({ r }) => culling(cam.MVP, ...offOf(r.i, r.j)))
+                regions = new Set(visible.slice(0, SLOT).map((k) => k.r))
                 const active = new Set<Region>()
                 const activeKeys = new Set<string>()
                 regions.forEach((r) => {
@@ -39,20 +38,26 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
                         activeKeys.add(`${r.i}:${r.j}`)
                         debugSetState(r.i, r.j, 'visible')
                 })
-                prebuild.forEach((r) => {
-                        if (active.has(r)) return
+                let prebuildCount = 0
+                for (const { r } of all) {
+                        if (prebuildCount >= PREBUILD) break
+                        if (active.has(r)) continue
                         r.tune('full', 2)
                         active.add(r)
                         activeKeys.add(`${r.i}:${r.j}`)
                         debugSetState(r.i, r.j, 'prebuild')
-                })
-                prefetch.forEach((r) => {
-                        if (active.has(r)) return
+                        prebuildCount++
+                }
+                let prefetchCount = 0
+                for (const { r } of all) {
+                        if (prefetchCount >= PREFETCH) break
+                        if (active.has(r)) continue
                         r.tune('image', 1)
                         active.add(r)
                         activeKeys.add(`${r.i}:${r.j}`)
                         debugSetState(r.i, r.j, 'prefetch')
-                })
+                        prefetchCount++
+                }
                 debugSetAnchor(i, j)
                 debugPrune(activeKeys)
                 store.map.forEach((r) => {

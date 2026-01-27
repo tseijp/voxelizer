@@ -13,8 +13,8 @@ export const SLOT = 16
 export const REGION = 256
 export const TOTAL = REGION * REGION * REGION
 export const PREPURGE = 32
-export const PREBUILD = 2
-export const PREFETCH = 4
+export const PREBUILD = 4
+export const PREFETCH = 16
 export const ATLAS_URL = 'http://localhost:5500/logs/v4'
 // export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3`
 
