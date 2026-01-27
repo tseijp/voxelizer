@@ -93,6 +93,29 @@ export const createScene = (mesh: Mesh, cam: Camera) => {
 
 export type Scene = ReturnType<typeof createScene>
 export type WorkerMode = 'none' | 'image' | 'full' | 'error'
-export type WorkerMessage = { id: number; i: number; j: number; mode: 'image' | 'full' } | { id: number; abort: true }
-export type WorkerResponse = { id: number; mode: WorkerMode; bitmap?: ImageBitmap; mesh?: { pos: Float32Array; scl: Float32Array; cnt: number }; occ?: Uint8Array; error?: string }
-export type WorkerResult = { bitmap: ImageBitmap; mesh?: { pos: Float32Array; scl: Float32Array; cnt: number }; occ?: Uint8Array; mode: WorkerMode }
+
+type WorkerMessageImpl = {
+        id: number
+        i: number
+        j: number
+        mode: 'image' | 'full'
+}
+type WorkerAbort = { id: number; abort: true }
+
+export type WorkerMessage = WorkerMessageImpl | WorkerAbort
+
+export type WorkerResponse = {
+        id: number
+        mode: WorkerMode
+        bitmap?: ImageBitmap
+        mesh?: { pos: Float32Array; scl: Float32Array; cnt: number }
+        occ?: Uint8Array
+        error?: string
+}
+
+export type WorkerResult = {
+        bitmap: ImageBitmap
+        mesh?: { pos: Float32Array; scl: Float32Array; cnt: number }
+        occ?: Uint8Array
+        mode: WorkerMode
+}

@@ -15,6 +15,11 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
         let request = 'none' as WorkerMode
         let ticket = 0
         let failed = 0
+        const _done = () => {
+                pending = undefined
+                queued = undefined
+                request = 'none'
+        }
         const _fetch = async (promise: Promise<WorkerResult>, _ticket: number, mode: 'image' | 'full') => {
                 try {
                         const res = await promise
@@ -23,15 +28,18 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                                 failed = performance.now() + 1500
                                 level = 'none'
                                 if (debugEnabled()) { debugTaskDone(i, j, mode); debugFlush() }
+                                _done()
                                 return result
                         }
                         level = res.mesh ? 'full' : 'image'
                         if (debugEnabled()) { debugTaskDone(i, j, mode); debugFlush() }
+                        _done()
                         return (result = res)
                 } catch {
                         failed = performance.now() + 1500
                         level = 'none'
                         if (debugEnabled()) { debugTaskDone(i, j, mode); debugFlush() }
+                        _done()
                         return result
                 }
         }

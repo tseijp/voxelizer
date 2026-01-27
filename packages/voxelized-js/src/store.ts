@@ -8,7 +8,8 @@ import type { WorkerResponse, WorkerResult } from './scene'
 type Pending = { resolve: (v: WorkerResult) => void; reject: (e?: unknown) => void; t: number }
 
 const createBridge = () => {
-        const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
+        const spawn = () => new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
+        let worker = spawn()
         let seq = 0
         const pending = new Map<number, Pending>()
         const _settle = (id: number, fn: (p: Pending) => void) => {
@@ -18,19 +19,31 @@ const createBridge = () => {
                 clearTimeout(p.t)
                 fn(p)
         }
-        worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
-                const { id, ...rest } = e.data
-                if (rest.mode === 'error')
-                        return _settle(id, (p) => {
-                                console.warn('worker error', rest)
-                                p.reject(rest)
-                        })
-                _settle(id, (p) => p.resolve(rest as WorkerResult))
+        const bind = () => {
+                worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+                        const { id, ...rest } = e.data
+                        if (rest.mode === 'error')
+                                return _settle(id, (p) => {
+                                        console.warn('worker error', rest)
+                                        p.reject(rest)
+                                })
+                        _settle(id, (p) => p.resolve(rest as WorkerResult))
+                }
+                worker.onerror = (e: ErrorEvent) => {
+                        console.warn('worker crash', e.message)
+                        pending.forEach((_, id) => _settle(id, (q) => q.reject(e.message)))
+                        worker.terminate()
+                        worker = spawn()
+                        bind()
+                }
+                worker.onmessageerror = () => {
+                        pending.forEach((_, id) => _settle(id, (q) => q.reject('message')))
+                        worker.terminate()
+                        worker = spawn()
+                        bind()
+                }
         }
-        worker.onerror = (e: ErrorEvent) => {
-                console.warn('worker crash', e.message)
-                pending.forEach((_, id) => _settle(id, (q) => q.reject(e.message)))
-        }
+        bind()
         const run = (i: number, j: number, mode: 'image' | 'full', signal?: AbortSignal) => {
                 const id = seq++
                 let resolve = (_: WorkerResult) => {}
