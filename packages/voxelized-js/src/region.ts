@@ -93,11 +93,15 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 if (mode === 'none') return _abort()
                 if (mode === 'image') {
                         if (level === 'full') return
+                        if (level === 'image') return
                         if (request === 'full') _abort()
+                        if (request === 'image') return queues.tune(queued, priority)
                         _request('image', priority)
                         return
                 }
+                if (level === 'full') return
                 if (request === 'image') _abort()
+                if (request === 'full') return queues.tune(queued, priority)
                 _request('full', priority)
         }
         const dispose = () => {
