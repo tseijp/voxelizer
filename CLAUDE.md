@@ -63,8 +63,8 @@ Web Mercator Tile Coordinates (z=17)
 | -------- | ----- | --------------------------------------------- |
 | REGION   | 256   | Voxel count per Region edge                   |
 | SLOT     | 16    | Maximum concurrent Region textures            |
-| PREBUILD | 8     | Regions to pre-generate meshes outside camera |
-| PREFETCH | 16    | Regions to pre-fetch images outside camera    |
+| PREBUILD | 4     | Regions to pre-generate meshes outside camera |
+| PREFETCH | 4     | Regions to pre-fetch images outside camera    |
 | PREPURGE | 32    | Maximum Regions to keep in memory             |
 
 ## Data Flow: Transformation Process from Atlas Image to Mesh Rendering
@@ -107,9 +107,9 @@ Processing order is: visible (in camera) > prebuild (near, outside camera) > pre
 │   3  ┌─────────────────────────────────────┐                          │
 │      │  visible (in camera)                │ ← full mode, immediate   │
 │   2  ├─────────────────────────────────────┤                          │
-│      │  prebuild (pre-generate mesh)       │ ← full mode, up to 8     │
+│      │  prebuild (pre-generate mesh)       │ ← full mode, up to 4     │
 │   1  ├─────────────────────────────────────┤                          │
-│      │  prefetch (pre-fetch image)         │ ← image mode, up to 16   │
+│      │  prefetch (pre-fetch image)         │ ← image mode, up to 4    │
 │   0  ├─────────────────────────────────────┤                          │
 │      │  (no task)                          │                          │
 │  -1  ├─────────────────────────────────────┤                          │
