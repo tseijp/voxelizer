@@ -30,7 +30,7 @@ export const createMesh = () => {
                 }
                 c.bufferSubData(c.ARRAY_BUFFER, 0, array)
         }
-        const merge = (built: { pos: number[]; scl: number[]; cnt: number }, index = 0, ox = 0, oy = 0, oz = 0) => {
+        const merge = (built: { pos: ArrayLike<number>; scl: ArrayLike<number>; cnt: number }, index = 0, ox = 0, oy = 0, oz = 0) => {
                 for (let i = 0; i < built.cnt; i++) {
                         _pos.push(built.pos[i * 3] + ox, built.pos[i * 3 + 1] + oy, built.pos[i * 3 + 2] + oz)
                         _scl.push(built.scl[i * 3], built.scl[i * 3 + 1], built.scl[i * 3 + 2])

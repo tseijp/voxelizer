@@ -1,14 +1,19 @@
+const createTask = <T>(resolve: (_: T) => void, start: (signal: AbortSignal) => Promise<T>, priority = 0, tag = ''): QueueTask => {
+        return { start, resolve, priority, started: false, isHigh: priority > 0, ctrl: new AbortController(), tag, done: false } as QueueTask
+}
+
 const createQueue = () => {
         const items = [] as QueueTask[]
         const sort = () => void items.sort((a, b) => b.priority - a.priority)
         const add = (task: QueueTask) => items.push(task)
-        const shift = () => items.shift()
+        const shift = () => items.shift()!
         const remove = (task: QueueTask) => {
                 const index = items.indexOf(task)
                 if (index >= 0) items.splice(index, 1)
         }
         return { add, shift, sort, remove, size: () => items.length }
 }
+
 export const createQueues = (limit = 4, lowLimit = 1) => {
         let _high = 0
         let _low = 0
@@ -26,14 +31,14 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
                 task.isHigh = isHigh
                 if (isHigh) _high++
                 else _low++
-                task.start(task.controller.signal)
+                task.start(task.ctrl.signal)
                         .then((x) => {
                                 if (task.done) return
                                 task.resolve(x)
                         })
                         .catch(() => {
                                 if (task.done) return
-                                task.resolve(undefined as unknown as QueueValue)
+                                task.resolve(undefined)
                         })
                         .finally(() => _finish(task))
         }
@@ -43,12 +48,11 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
                         low.sort()
                         if (_high + _low >= limit) return
                         if (high.size() > 0) {
-                                const task = high.shift() as QueueTask
-                                _launch(task, true)
+                                _launch(high.shift(), true)
                                 return tick()
                         }
                         if (low.size() <= 0 || _low >= lowLimit) return
-                        _launch(low.shift() as QueueTask, false)
+                        _launch(low.shift(), false)
                         return tick()
                 }
                 tick()
@@ -60,12 +64,12 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
         const schedule = <T>(start: (signal: AbortSignal) => Promise<T>, priority = 0, tag = '') => {
                 let resolve = (_: T) => {}
                 const promise = new Promise<T>((r) => (resolve = r))
-                const task = { start, resolve, priority, started: false, isHigh: priority > 0, controller: new AbortController(), tag, done: false } as QueueTask<any>
+                const task = createTask(resolve, start, priority, tag)
                 ;(task.isHigh ? high : low).add(task)
                 _pump()
                 return { promise, task }
         }
-        const tune = (task?: QueueTask<any>, priority = 0) => {
+        const tune = (task?: QueueTask, priority = 0) => {
                 if (!task || task.priority === priority) return
                 const nextHigh = priority > 0
                 const prevHigh = task.isHigh
@@ -90,17 +94,17 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
                 }
                 _pump()
         }
-        const abort = (task?: QueueTask<any>) => {
+        const abort = (task?: QueueTask) => {
                 if (!task || task.done) return
                 if (task.started) {
-                        task.controller.abort()
-                        task.resolve(undefined as unknown as QueueValue)
+                        task.ctrl.abort()
+                        task.resolve(undefined)
                         _finish(task)
                         return
                 }
                 ;(task.isHigh ? high : low).remove(task)
                 task.done = true
-                task.resolve(undefined as unknown as QueueValue)
+                task.resolve(undefined)
                 _pump()
         }
         return { schedule, tune, abort }
@@ -108,14 +112,13 @@ export const createQueues = (limit = 4, lowLimit = 1) => {
 
 export type Queue = ReturnType<typeof createQueue>
 export type Queues = ReturnType<typeof createQueues>
-type QueueValue = unknown
-export type QueueTask<T = QueueValue> = {
+export type QueueTask<T = unknown> = {
         start: (signal: AbortSignal) => Promise<T>
         resolve: (data: T) => void
         priority: number
         started: boolean
         isHigh: boolean
-        controller: AbortController
+        ctrl: AbortController
         tag: string
         done: boolean
 }

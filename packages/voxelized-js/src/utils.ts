@@ -5,22 +5,42 @@
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51620, y1: 51624 }
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51615, y1: 51624 }
 
-export const SCOPE = { x0: 116358, x1: 116466, y0: 51619, y1: 51627 }
+// for y in {51619..51626}; do for x in {116358..116467}; do yarn script2 --z 17 --x $x --y $y; done; done
+export const SCOPE = { x0: 116358, x1: 116467, y0: 51619, y1: 51626 }
 
 export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
-export const CACHE = 32
 export const REGION = 256
-export const PREBUILD = 2 // do not change
-export const PREFETCH = 4 // do not change
+export const TOTAL = REGION * REGION * REGION
+export const PREBUILD = 8
+export const PREFETCH = 16
+export const PREPURGE = 32
 export const ATLAS_URL = 'http://localhost:5500/logs/v4'
 // export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3`
 
 export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => [(i - SCOPE.x0) << 8, 0, (j - SCOPE.y0) << 8]
+export const local = (x: number, y: number, z: number) => (x | 0) + ((y | 0) + (z | 0) * REGION) * REGION
 export const posOf = (x = 0, z = 0) => [SCOPE.x0 + (x >> 8), SCOPE.y0 + (z >> 8)]
 export const range = (n = 0) => [...Array(n).keys()]
 export const regionId = (i = 0, j = 0) => i + ROW * j
 export const culling = (VP = M.create(), rx = 0, ry = 0, rz = 0) => visSphere(VP as number[], rx + 128, ry + 128, rz + 128, Math.sqrt(256 * 256 * 3) * 0.5)
+
+export const localOf = (wx: number, wy: number, wz: number, ri: number, rj: number): [number, number, number] => {
+        const [ox, , oz] = offOf(ri, rj)
+        return [wx - ox, wy, wz - oz]
+}
+
+export const withinRange = (dx: number, dy: number, range: number) => Math.abs(dx) < range && Math.abs(dy) < range
+
+export const inRegion = (x: number, y: number, z: number) => {
+        if (x < 0) return false
+        if (y < 0) return false
+        if (z < 0) return false
+        if (x >= REGION) return false
+        if (y >= REGION) return false
+        if (z >= REGION) return false
+        return true
+}
 
 export const scoped = (i = 0, j = 0) => {
         // if (i === 78) if (j === 75) return false
@@ -108,8 +128,7 @@ export const uv2m = (x: number, y: number) => {
 }
 
 export const atlas2occ = (data: Uint8ClampedArray, width: number, height: number) => {
-        const total = REGION * REGION * REGION
-        const occ = new Uint8Array(total)
+        const occ = new Uint8Array(TOTAL)
         const pixels = width * height
         for (let i = 0; i < pixels; i++) {
                 const alpha = data[i * 4 + 3]
@@ -118,7 +137,7 @@ export const atlas2occ = (data: Uint8ClampedArray, width: number, height: number
                 const ay = (i / width) | 0
                 const id = uv2m(ax, ay)
                 const [x, y, z] = m2xyz(id)
-                occ[x + (y + z * REGION) * REGION] = 1
+                occ[local(x, y, z)] = 1
         }
         return occ
 }
