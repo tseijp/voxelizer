@@ -17,6 +17,7 @@ export const createScene = (mesh: Mesh, cam: Camera, debug?: Debug) => {
         const store = createStore(mesh, debug)
         let regions = new Set<Region>()
         let isLoading = false
+        let isFirst = true
         let pt = performance.now()
         const vis = () => {
                 const all: { d: number; r: Region }[] = []
@@ -70,7 +71,8 @@ export const createScene = (mesh: Mesh, cam: Camera, debug?: Debug) => {
         }
         const render = (gl: WebGL2RenderingContext, program: WebGLProgram) => {
                 const now = performance.now()
-                if (!isLoading && now - pt >= 100) {
+                if (!isLoading && (isFirst || now - pt >= 100)) {
+                        isFirst = false
                         vis()
                         mesh.reset()
                         slots.begin(regions)
