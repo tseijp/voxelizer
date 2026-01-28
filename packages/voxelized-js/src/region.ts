@@ -22,10 +22,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
         const _fetch = async (promise: Promise<WorkerResult>, _ticket: number, mode: 'image' | 'full') => {
                 try {
                         const res = await promise
-                        if (_ticket !== ticket) {
-                                _done()
-                                return res
-                        }
+                        if (_ticket !== ticket) return res
                         if (!res || !res.bitmap) {
                                 failed = performance.now() + 1500
                                 level = 'none'
@@ -39,6 +36,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                         _done()
                         return (result = res)
                 } catch {
+                        if (_ticket !== ticket) return result
                         failed = performance.now() + 1500
                         level = 'none'
                         debug?.taskDone(i, j, mode)
@@ -50,7 +48,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 if (performance.now() < failed) return Promise.resolve(result)
                 if (level === 'full') return Promise.resolve(result)
                 if (level === 'image' && mode === 'image') return Promise.resolve(result)
-                if (level === 'image' && mode === 'full') pending = undefined
+                if (level === 'image' && mode === 'full' && request !== 'full') pending = undefined
                 if (pending) queues.tune(queued, priority)
                 else {
                         ticket++
@@ -93,11 +91,15 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 if (mode === 'none') return _abort()
                 if (mode === 'image') {
                         if (level === 'full') return
+                        if (level === 'image') return
                         if (request === 'full') _abort()
+                        if (request === 'image') return queues.tune(queued, priority)
                         _request('image', priority)
                         return
                 }
+                if (level === 'full') return
                 if (request === 'image') _abort()
+                if (request === 'full') return queues.tune(queued, priority)
                 _request('full', priority)
         }
         const dispose = () => {

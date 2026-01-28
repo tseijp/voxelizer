@@ -9,7 +9,7 @@ import type { Region } from './region'
 const RANGE = 8
 
 const grid = (range: number, callback: (dx: number, dy: number) => void) => {
-        for (let dx = -range; dx <= range; dx++) for (let dy = -range; dy <= range; dy++) callback(dx, dy)
+        for (let dx = range; dx >= -range; dx--) for (let dy = range; dy >= -range; dy--) callback(dx, dy)
 }
 
 export const createScene = (mesh: Mesh, cam: Camera, debug?: Debug) => {
@@ -17,6 +17,7 @@ export const createScene = (mesh: Mesh, cam: Camera, debug?: Debug) => {
         const store = createStore(mesh, debug)
         let regions = new Set<Region>()
         let isLoading = false
+        let isFirst = true
         let pt = performance.now()
         const vis = () => {
                 const all: { d: number; r: Region }[] = []
@@ -70,7 +71,8 @@ export const createScene = (mesh: Mesh, cam: Camera, debug?: Debug) => {
         }
         const render = (gl: WebGL2RenderingContext, program: WebGLProgram) => {
                 const now = performance.now()
-                if (!isLoading && now - pt >= 100) {
+                if (!isLoading && (isFirst || now - pt >= 100)) {
+                        isFirst = false
                         vis()
                         mesh.reset()
                         slots.begin(regions)
