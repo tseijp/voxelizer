@@ -48,6 +48,7 @@ const createCollider = ({ SIZE = [0.8, 1.8, 0.8], GRAVITY = -50, JUMP = 12, GROU
 const lookAt = (eye = V.create(), pos = V.create(), face = V.create()) => {
         V.scaleAndAdd(eye, pos, face, 10)
 }
+
 const faceDir = (out = V.create(), yaw = 0, pitch = 0) => {
         M.identity(_t2)
         M.rotateY(_t2, _t2, yaw)
