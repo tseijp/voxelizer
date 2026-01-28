@@ -70,7 +70,6 @@ const createSlot = (index = 0) => {
 export const createSlots = (size = 16) => {
         const owner = range(size).map(createSlot)
         let pending = [] as Region[]
-        let cursor = 0
         let keep = new Set<Region>()
         const _assign = (c: WebGL2RenderingContext, pg: WebGLProgram, r: Region, budget = 6) => {
                 let index = r.slot
@@ -92,22 +91,25 @@ export const createSlots = (size = 16) => {
         }
         const begin = (next: Set<Region>) => {
                 _release((keep = next))
-                cursor = 0
                 pending = Array.from(keep)
                 pending.forEach((r) => r.reset())
         }
         const step = (c: WebGL2RenderingContext, pg: WebGLProgram, budget = 6) => {
                 const start = performance.now()
                 const inBudget = timer(budget)
-                for (; cursor < pending.length; cursor++) {
-                        if (!inBudget()) break
-                        const r = pending[cursor]
+                let hasPending = false
+                for (let idx = 0; idx < pending.length; idx++) {
+                        if (!inBudget()) return false
+                        const r = pending[idx]
+                        if (r.fetching()) {
+                                hasPending = true
+                                continue
+                        }
                         const dt = Math.max(0, budget - (performance.now() - start))
                         if (_assign(c, pg, r, dt)) continue
-                        if (r.fetching()) return false
-                        if (r.bitmap()) return false
+                        hasPending = true
                 }
-                return cursor >= pending.length
+                return !hasPending
         }
         return { begin, step }
 }
