@@ -9,7 +9,7 @@ import type { Region } from './region'
 const RANGE = 8
 
 const grid = (range: number, callback: (dx: number, dy: number) => void) => {
-        for (let dx = -range; dx <= range; dx++) for (let dy = -range; dy <= range; dy++) callback(dx, dy)
+        for (let dx = range; dx >= -range; dx--) for (let dy = range; dy >= -range; dy--) callback(dx, dy)
 }
 
 export const createScene = (mesh: Mesh, cam: Camera, debug?: Debug) => {

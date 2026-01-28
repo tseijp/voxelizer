@@ -50,7 +50,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                 if (performance.now() < failed) return Promise.resolve(result)
                 if (level === 'full') return Promise.resolve(result)
                 if (level === 'image' && mode === 'image') return Promise.resolve(result)
-                if (level === 'image' && mode === 'full') pending = undefined
+                if (level === 'image' && mode === 'full' && request !== 'full') pending = undefined
                 if (pending) queues.tune(queued, priority)
                 else {
                         ticket++
