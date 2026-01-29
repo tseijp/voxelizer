@@ -5,7 +5,7 @@ import type { Queues, QueueTask } from './queue'
 import type { WorkerMode, WorkerResult } from './scene'
 import type { WorkerBridge } from './store'
 
-export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Queues, worker: WorkerBridge, debug?: Debug) => {
+export const createRegion = (i = SCOPE.x0, j = SCOPE.y0, mesh: Mesh, queues: Queues, worker: WorkerBridge, debug?: Debug) => {
         let isMeshed = false
         let pending: Promise<WorkerResult | undefined> | undefined
         let queued: QueueTask | undefined
