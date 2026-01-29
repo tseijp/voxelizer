@@ -4,7 +4,7 @@ import { defaultConfig } from '../../tsup.config'
 export default defineConfig((options) => {
         return defaultConfig(
                 {
-                        entry: ['src/index.ts'],
+                        entry: ['src/index.ts', 'src/worker.ts'],
                 },
                 options
         )

@@ -5,7 +5,6 @@
         "license": "MIT",
         "private": false,
         "sideEffect": false,
-        "type": "module",
         "publishConfig": {
                 "access": "public"
         },
@@ -22,9 +21,9 @@
                 "voxeler",
                 "typescript"
         ],
-        "main": "./dist/index.cjs",
+        "main": "./dist/index.js",
         "types": "./dist/index.d.ts",
-        "module": "./dist/index.js",
+        "module": "./dist/index.mjs",
         "exports": {
                 "./packages.json": "./packages.json",
                 "./src": {
@@ -36,27 +35,31 @@
                         "types": "./dist/index.d.ts",
                         "import": {
                                 "types": "./dist/index.d.ts",
-                                "default": "./dist/index.js"
+                                "default": "./dist/index.mjs"
                         },
                         "module": {
                                 "types": "./dist/index.d.ts",
-                                "default": "./dist/index.js"
+                                "default": "./dist/index.mjs"
                         },
-                        "require": "./dist/index.cjs",
-                        "default": "./dist/index.js"
+                        "require": "./dist/index.js",
+                        "default": "./dist/index.mjs"
+                },
+                "./worker": {
+                        "import": "./dist/worker.mjs",
+                        "require": "./dist/worker.js"
                 },
                 "./*": {
                         "types": "./dist/index.d.ts",
                         "import": {
                                 "types": "./dist/index.d.ts",
-                                "default": "./dist/index.js"
+                                "default": "./dist/index.mjs"
                         },
                         "module": {
                                 "types": "./dist/index.d.ts",
-                                "default": "./dist/index.js"
+                                "default": "./dist/index.mjs"
                         },
-                        "require": "./dist/index.cjs",
-                        "default": "./dist/index.js"
+                        "require": "./dist/index.js",
+                        "default": "./dist/index.mjs"
                 }
         },
         "files": [

@@ -9,31 +9,37 @@ Through Web Worker asynchronous processing and priority-based task queuing,
 it performs Atlas image fetching, decoding, and mesh generation without blocking the main thread.
 
 ```ts
-┌──────────────────────────────────────────────────────────────────────┐
-│                      voxelized-js Architecture                       │
-├──────────────────────────────────────────────────────────────────────┤
-│ ┌─────────────┐    ┌──────────────┐    ┌─────────────┐               │
-│ │   Camera    │───▶│    Scene     │───▶│    Mesh     │──▶ WebGL Draw │
-│ │  (viewport) │    │ (coordinator)│    │  (vertices) │               │
-│ └─────────────┘    └──────┬───────┘    └─────────────┘               │
-│                           │                                          │
-│        ┌──────────────────┼───────────────────┐                      │
-│        ▼                  ▼                   ▼                      │
-│ ┌─────────────┐    ┌──────────────┐    ┌─────────────┐               │
-│ │    Store    │    │    Slots     │    │    Queue    │               │
-│ │(Region ctrl)│    │(Texture ctrl)│    │ (Task ctrl) │               │
-│ └──────┬──────┘    └──────────────┘    └──────┬──────┘               │
-│        │                                      │                      │
-│        ▼                                      ▼                      │
-│ ┌─────────────┐                        ┌─────────────┐               │
-│ │   Region    │◀──────────────────────▶│   Worker    │               │
-│ │ (unit area) │                        │(off-thread) │               │
-│ └─────────────┘                        └─────────────┘               │
-│                                               │                      │
-│                                               ▼                      │
-│                                        CDN/R2 Storage                │
-│                                       (Atlas delivery)               │
-└──────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                 voxelized-js Architecture                  │
+├────────────────────────────────────────────────────────────┤
+│         ┌─────────────┐ ┌─────────────┐                    │
+│         │   Camera    │ │    Mesh     │──▶ WebGL Draw      │
+│         │  (viewport) │ │  (vertices) │                    │
+│         └──────┬──────┘ └──────┬──────┘                    │
+│                └───────┬───────┘                           │
+│                        ▼                                   │
+│                 ┌──────────────┐                           │
+│                 │    Scene     │                           │
+│                 │ (coordinator)│                           │
+│                 └──────┬───────┘                           │
+│                ┌───────┴───────┐                           │
+│                ▼               ▼                           │
+│         ┌─────────────┐ ┌──────────────┐                   │
+│         │    Store    │ │    Slots     │──▶ Texture Update │
+│         │(Region ctrl)│ │(Texture ctrl)│                   │
+│         └──────┬──────┘ └──────────────┘                   │
+│        ┌───────┴───────┐                                   │
+│        ▼               ▼                                   │
+│ ┌─────────────┐ ┌─────────────┐                            │
+│ │    Queue    │ │   Worker    │──▶ CDN/R2 Storage          │
+│ │ (Task ctrl) │ │(off-thread) │    (Atlas delivery)        │
+│ └──────┬──────┘ └─────────────┘                            │
+│        ▼                                                   │
+│ ┌─────────────┐                                            │
+│ │   Region    │                                            │
+│ │ (unit area) │                                            │
+│ └─────────────┘                                            │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ## Spatial Model: Correspondence Between Web Mercator Tiles and Voxel Regions
@@ -353,7 +359,7 @@ When there are 0 listeners, no measurements are taken, ensuring no impact on pro
 ```ts
 const cam = createCamera({ X: 0, Y: 100, Z: 0 })
 const mesh = createMesh()
-const scene = createScene(mesh, cam)
+const scene = createScene(mesh, cam, WORKER_URL)
 
 const render = (gl, program) => {
         cam.update(aspect)
@@ -362,12 +368,12 @@ const render = (gl, program) => {
 }
 ```
 
-| Factory Function | Creates | Required Args         | Notes                    |
-| ---------------- | ------- | --------------------- | ------------------------ |
-| createCamera     | Camera  | position/angle params | 1 per canvas             |
-| createMesh       | Mesh    | none                  | 1 per canvas             |
-| createScene      | Scene   | Mesh, Camera, Debug?  | 1 per canvas             |
-| createDebug      | Debug   | none                  | optional, for monitoring |
+| Factory Function | Creates | Required Args                   | Notes                    |
+| ---------------- | ------- | ------------------------------- | ------------------------ |
+| createCamera     | Camera  | position/angle params           | 1 per canvas             |
+| createMesh       | Mesh    | none                            | 1 per canvas             |
+| createScene      | Scene   | Mesh, Camera, workerUrl, Debug? | 1 per canvas             |
+| createDebug      | Debug   | none                            | optional, for monitoring |
 
 ## Coordinate Transformation Utility Reference
 
