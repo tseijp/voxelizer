@@ -17,22 +17,22 @@ it performs Atlas image fetching, decoding, and mesh generation without blocking
 │ │  (viewport) │    │ (coordinator)│    │  (vertices) │               │
 │ └─────────────┘    └──────┬───────┘    └─────────────┘               │
 │                           │                                          │
-│        ┌──────────────────┼──────────────────┐                       │
-│        ▼                  ▼                  ▼                       │
-│ ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                │
-│ │    Store    │    │    Slots    │    │    Queue    │                │
-│ │(Region mgmt)│    │(Texture mgmt)│    │ (Task mgmt) │               │
-│ └──────┬──────┘    └─────────────┘    └──────┬──────┘                │
-│        │                                     │                       │
-│        ▼                                     ▼                       │
-│ ┌─────────────┐                      ┌─────────────┐                 │
-│ │   Region    │◀────────────────────▶│   Worker    │                 │
-│ │ (unit area) │                      │(off-thread) │                 │
-│ └─────────────┘                      └─────────────┘                 │
-│                                             │                        │
-│                                             ▼                        │
-│                                      CDN/R2 Storage                  │
-│                                     (Atlas delivery)                 │
+│        ┌──────────────────┼───────────────────┐                      │
+│        ▼                  ▼                   ▼                      │
+│ ┌─────────────┐    ┌──────────────┐    ┌─────────────┐               │
+│ │    Store    │    │    Slots     │    │    Queue    │               │
+│ │(Region ctrl)│    │(Texture ctrl)│    │ (Task ctrl) │               │
+│ └──────┬──────┘    └──────────────┘    └──────┬──────┘               │
+│        │                                      │                      │
+│        ▼                                      ▼                      │
+│ ┌─────────────┐                        ┌─────────────┐               │
+│ │   Region    │◀──────────────────────▶│   Worker    │               │
+│ │ (unit area) │                        │(off-thread) │               │
+│ └─────────────┘                        └─────────────┘               │
+│                                               │                      │
+│                                               ▼                      │
+│                                        CDN/R2 Storage                │
+│                                       (Atlas delivery)               │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -141,16 +141,14 @@ Level progresses 'none' → 'image' → 'full', and returns to 'none' via dispos
 │                 tune('image', 1)                                      │
 │      ┌───────────────────────────────────────────────┐                │
 │      │                                               ▼                │
-│ ┌────┴────┐    tune('full', 2)     ┌──────────┐    Worker   ┌───────┐ │
+│ ┌────┴────┐     tune('full', 2)    ┌──────────┐    Worker   ┌───────┐ │
 │ │  none   │ ─────────────────────▶ │ fetching │ ──────────▶ │ image │ │
-│ │(initial)│                        │(loading) │             │(img)  │ │
 │ └────┬────┘                        └────┬─────┘             └───┬───┘ │
 │      ▲                                  │                       │     │
 │      │ dispose()                        │ tune('full', 3)       │     │
 │      │                                  ▼                       ▼     │
 │ ┌────┴─────┐    tune('none', -1)   ┌──────────┐    Worker   ┌──────┐  │
 │ │ purged   │ ◀──────────────────── │ building │ ──────────▶ │ full │  │
-│ │(disposed)│                       │(meshing) │             │(done)│  │
 │ └──────────┘                       └──────────┘             └──────┘  │
 │                                                                       │
 │ Internal Variables:                                                   │
@@ -203,17 +201,16 @@ This places spatially adjacent voxels close together in the image, improving cac
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                 Morton Curve Coordinate Transformation                  │
 ├─────────────────────────────────────────────────────────────────────────┤
-│ 3D Space (x, y, z)       3D Morton           2D Morton       2D Image   │
-│ ──────────────────       ─────────           ─────────       ────────   │
-│     z                                                        ┌──────┐   │
-│     │   ┌────┐          xyz2m()          m2uv()              │      │   │
-│     │  /    /│     ───────────────▶  ───────────────▶        │ PNG  │   │
-│     │ ┌────┐ │          24bit             16bit x 2          │4096² │   │
-│     │ │    │/                                                │      │   │
-│     └─┴────┴─── x                                            └──────┘   │
+│ 3D Space (x, y, z)      3D Morton        2D Morton        2D Image      │
+│ ──────────────────      ─────────        ─────────        ────────      │
+│     z                                                     ┌──────┐      │
+│     │   ┌────┐          xyz2m()          m2uv()           │      │      │
+│     │  /    /│     ───────────────▶  ───────────────▶     │ PNG  │      │
+│     │ ┌────┐ │          24bit            16bit × 2        │4096² │      │
+│     │ │    │/                                             │      │      │
+│     └─┴────┴─── x                                         └──────┘      │
 │    /                                                                    │
 │   y                                                                     │
-│                                                                         │
 │ Inverse Transform (decoding):                                           │
 │     uv2m()              m2xyz()                                         │
 │   2D coord ─────────▶ Morton val ─────────▶ 3D coord ─────────▶ occ arr │
@@ -319,36 +316,36 @@ Register handlers with onDebug to receive real-time state changes.
 When there are 0 listeners, no measurements are taken, ensuring no impact on production environments.
 
 ```ts
-┌──────────────────────────────────────────────────────────────────┐
-│                      Debug Event Structure                       │
-├──────────────────────────────────────────────────────────────────┤
-│  const debug = createDebug()                                     │
-│  debug.onDebug((event) => {                                      │
-│    event.ts       // timestamp                                   │
-│    event.anchor   // [i, j] Region coord of camera position      │
-│    event.cells    // DebugCell[] state array of all Regions      │
-│  })                                                              │
-│                                                                  │
-│  DebugCell Structure:                                            │
-│  ┌────────────┬────────────────────────────────────────────────┐ │
-│  │ Field      │ Type and Description                           │ │
-│  ├────────────┼────────────────────────────────────────────────┤ │
-│  │ i, j       │ number: Region's Web Mercator tile coordinates │ │
-│  │ state      │ 'visible' | 'prebuild' | 'prefetch' | 'idle'   │ │
-│  │ cache      │ 'empty' | 'loading' | 'cached' | 'purged'      │ │
-│  │ prefetchMs │ number?: time taken for image fetch (ms)       │ │
-│  │ prebuildMs │ number?: time taken for mesh generation (ms)   │ │
-│  └────────────┴────────────────────────────────────────────────┘ │
-│                                                                  │
-│  Event Trigger Timing:                                           │
-│    setAnchor  → on camera move                                   │
-│    setState   → on Region state change                           │
-│    setCache   → on cache state change                            │
-│    taskStart  → on Worker task start                             │
-│    taskDone   → on Worker task complete                          │
-│    taskAbort  → on Worker task abort                             │
-│    prune      → on unnecessary Region removal                    │
-└──────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                           Debug Event Structure                           │
+├───────────────────────────────────────────────────────────────────────────┤
+│  const debug = createDebug()                                              │
+│  debug.onDebug((event) => {                                               │
+│    event.ts       // timestamp                                            │
+│    event.anchor   // [i, j] Region coord of camera position               │
+│    event.cells    // DebugCell[] state array of all Regions               │
+│  })                                                                       │
+│                                                                           │
+│  DebugCell Structure:                                                     │
+│  ┌────────────┬─────────────────────────────────────────────────────────┐ │
+│  │ Field      │ Type and Description                                    │ │
+│  ├────────────┼─────────────────────────────────────────────────────────┤ │
+│  │ i, j       │ number: Region's Web Mercator tile coordinates          │ │
+│  │ state      │ 'visible' | 'prebuild' | 'prefetch' | 'idle'            │ │
+│  │ cache      │ 'empty' | 'fetching' | 'building' | 'cached' | 'purged' │ │
+│  │ prefetchMs │ number?: time taken for image fetch (ms)                │ │
+│  │ prebuildMs │ number?: time taken for mesh generation (ms)            │ │
+│  └────────────┴─────────────────────────────────────────────────────────┘ │
+│                                                                           │
+│  Event Trigger Timing:                                                    │
+│    setAnchor  → on camera move                                            │
+│    setState   → on Region state change                                    │
+│    setCache   → on cache state change                                     │
+│    taskStart  → on Worker task start                                      │
+│    taskDone   → on Worker task complete                                   │
+│    taskAbort  → on Worker task abort                                      │
+│    prune      → on unnecessary Region removal                             │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Usage Pattern: Basic Initialization and Render Loop

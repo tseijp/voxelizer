@@ -55,7 +55,7 @@ export const createRegion = (mesh: Mesh, i = SCOPE.x0, j = SCOPE.y0, queues: Que
                         const { promise, task } = queues.schedule((signal) => worker.run(i, j, mode, signal), priority, mode)
                         queued = task
                         request = mode
-                        debug?.setCache(i, j, 'loading')
+                        debug?.setCache(i, j, mode === 'full' ? 'building' : 'fetching')
                         debug?.taskStart(i, j, mode)
                         pending = _fetch(promise, ticket, mode)
                 }
