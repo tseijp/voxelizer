@@ -76,7 +76,7 @@ export const createStore = (mesh: Mesh, debug?: Debug, queues = createQueues(), 
                 const id = regionId(rx, ry)
                 const got = map.get(id)
                 if (got) return got
-                const r = createRegion(mesh, rx, ry, queues, worker, debug)
+                const r = createRegion(rx, ry, mesh, queues, worker, debug)
                 map.set(id, r)
                 return r
         }

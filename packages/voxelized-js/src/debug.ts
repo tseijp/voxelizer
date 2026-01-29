@@ -1,5 +1,5 @@
 export type CellState = 'visible' | 'prebuild' | 'prefetch' | 'idle'
-export type CellCache = 'empty' | 'loading' | 'cached' | 'purged'
+export type CellCache = 'empty' | 'fetching' | 'building' | 'cached' | 'purged'
 
 export type DebugCell = {
         i: number
@@ -89,7 +89,7 @@ export const createDebug = () => {
                 if (data.cache === cache) return
                 data.cache = cache
                 dirty = true
-                if (cache !== 'loading') _flush()
+                if (cache !== 'fetching' && cache !== 'building') _flush()
         }
         const taskStart = (i: number, j: number, mode: 'image' | 'full') => {
                 if (!_enabled()) return
