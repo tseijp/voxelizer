@@ -45,8 +45,8 @@
                         "default": "./dist/index.mjs"
                 },
                 "./worker": {
-                        "import": "./dist/worker.mjs",
-                        "require": "./dist/worker.js"
+                        "import": "./src/worker.ts",
+                        "default": "./src/worker.ts"
                 },
                 "./*": {
                         "types": "./dist/index.d.ts",
