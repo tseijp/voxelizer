@@ -1,6 +1,15 @@
-import { greedyMesh } from 'voxelized-rs'
+import initWasm from 'voxelized-rs/voxelized_rs_bg.wasm?init'
+import * as wasm from 'voxelized-rs/voxelized_rs_bg.js'
 import { atlas2occ, ATLAS_URL, REGION } from './utils'
 import type { WorkerMessage, WorkerResponse } from './scene'
+
+let isReady = false
+const init = async () => {
+        if (isReady) return
+        const instance = await initWasm({ './voxelized_rs_bg.js': wasm })
+        wasm.__wbg_set_wasm(instance.exports)
+        isReady = true
+}
 
 const controllers = new Map<number, AbortController>()
 
@@ -21,7 +30,7 @@ const decodeAtlas = (bitmap: ImageBitmap, signal?: AbortSignal) => {
         if (signal?.aborted) return { occ: undefined as unknown as Uint8Array, mesh: undefined as unknown as any }
         const occ = atlas2occ(data, bitmap.width, bitmap.height)
         if (signal?.aborted) return { occ: undefined as unknown as Uint8Array, mesh: undefined as unknown as any }
-        const mesh = greedyMesh(occ, REGION) as any
+        const mesh = wasm.greedyMesh(occ, REGION) as any
         return { occ, mesh }
 }
 
@@ -48,6 +57,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         const done = () => controllers.delete(id)
         const task = async () => {
                 try {
+                        await init()
                         const bitmap = await loadImage(`${ATLAS_URL}/17_${i}_${j}.png`, ctrl.signal)
                         if (ctrl.signal.aborted) return done()
                         if (mode === 'image') {
