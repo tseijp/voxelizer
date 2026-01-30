@@ -1,5 +1,5 @@
 import { createSlots } from './slot'
-import { createBridge, createStore } from './store'
+import { createStore } from './store'
 import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId } from './utils'
 import type { Camera } from './camera'
 import type { Debug } from './debug'
@@ -12,8 +12,8 @@ const grid = (range: number, callback: (dx: number, dy: number) => void) => {
         for (let dx = range; dx >= -range; dx--) for (let dy = range; dy >= -range; dy--) callback(dx, dy)
 }
 
-export const createScene = (mesh: Mesh, cam: Camera, workerUrl: string | URL, debug?: Debug) => {
-        const store = createStore(mesh, workerUrl, debug)
+export const createScene = (mesh: Mesh, cam: Camera, worker: Worker, debug?: Debug) => {
+        const store = createStore(mesh, worker, debug)
         const slots = createSlots(SLOT)
         let regions = new Set<Region>()
         let isLoading = false

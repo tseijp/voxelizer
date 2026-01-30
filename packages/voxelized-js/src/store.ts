@@ -8,9 +8,7 @@ import type { WorkerResponse, WorkerResult } from './scene'
 
 type Pending = { resolve: (v: WorkerResult) => void; reject: (e?: unknown) => void; t: number }
 
-export const createBridge = (workerUrl: string | URL) => {
-        const spawn = () => new Worker(workerUrl, { type: 'module' })
-        let worker = spawn()
+export const createBridge = (worker: Worker) => {
         let seq = 0
         const pending = new Map<number, Pending>()
         const _settle = (id: number, fn: (p: Pending) => void) => {
@@ -20,31 +18,24 @@ export const createBridge = (workerUrl: string | URL) => {
                 clearTimeout(p.t)
                 fn(p)
         }
-        const bind = () => {
-                worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
-                        const { id, ...rest } = e.data
-                        if (rest.mode === 'error')
-                                return _settle(id, (p) => {
-                                        console.warn('worker error', rest)
-                                        p.reject(rest)
-                                })
-                        _settle(id, (p) => p.resolve(rest as WorkerResult))
-                }
-                worker.onerror = (e: ErrorEvent) => {
-                        console.warn('worker crash', e.message)
-                        pending.forEach((_, id) => _settle(id, (q) => q.reject(e.message)))
-                        worker.terminate()
-                        worker = spawn()
-                        bind()
-                }
-                worker.onmessageerror = () => {
-                        pending.forEach((_, id) => _settle(id, (q) => q.reject('message')))
-                        worker.terminate()
-                        worker = spawn()
-                        bind()
-                }
+        worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+                const { id, ...rest } = e.data
+                if (rest.mode === 'error')
+                        return _settle(id, (p) => {
+                                console.warn('worker error', rest)
+                                p.reject(rest)
+                        })
+                _settle(id, (p) => p.resolve(rest as WorkerResult))
         }
-        bind()
+        worker.onerror = (e: ErrorEvent) => {
+                console.warn('worker crash', e.message)
+                pending.forEach((_, id) => _settle(id, (q) => q.reject(e.message)))
+                worker.terminate()
+        }
+        worker.onmessageerror = () => {
+                pending.forEach((_, id) => _settle(id, (q) => q.reject('message')))
+                worker.terminate()
+        }
         const run = (i: number, j: number, mode: 'image' | 'full', signal?: AbortSignal) => {
                 const id = seq++
                 let resolve = (_: WorkerResult) => {}
@@ -70,15 +61,15 @@ export const createBridge = (workerUrl: string | URL) => {
         return { run }
 }
 
-export const createStore = (mesh: Mesh, workerUrl: string | URL, debug?: Debug) => {
+export const createStore = (mesh: Mesh, worker: Worker, debug?: Debug) => {
         const queues = createQueues()
-        const worker = createBridge(workerUrl)
+        const bridge = createBridge(worker)
         const map = new Map<number, Region>()
         const ensure = (rx = 0, ry = 0) => {
                 const id = regionId(rx, ry)
                 const got = map.get(id)
                 if (got) return got
-                const r = createRegion(rx, ry, mesh, queues, worker, debug)
+                const r = createRegion(rx, ry, mesh, queues, bridge, debug)
                 map.set(id, r)
                 return r
         }
