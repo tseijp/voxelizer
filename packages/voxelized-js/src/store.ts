@@ -8,8 +8,8 @@ import type { WorkerResponse, WorkerResult } from './scene'
 
 type Pending = { resolve: (v: WorkerResult) => void; reject: (e?: unknown) => void; t: number }
 
-const createBridge = () => {
-        const spawn = () => new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
+export const createBridge = (workerUrl: string | URL) => {
+        const spawn = () => new Worker(workerUrl, { type: 'module' })
         let worker = spawn()
         let seq = 0
         const pending = new Map<number, Pending>()
@@ -70,7 +70,9 @@ const createBridge = () => {
         return { run }
 }
 
-export const createStore = (mesh: Mesh, debug?: Debug, queues = createQueues(), worker = createBridge()) => {
+export const createStore = (mesh: Mesh, workerUrl: string | URL, debug?: Debug) => {
+        const queues = createQueues()
+        const worker = createBridge(workerUrl)
         const map = new Map<number, Region>()
         const ensure = (rx = 0, ry = 0) => {
                 const id = regionId(rx, ry)
