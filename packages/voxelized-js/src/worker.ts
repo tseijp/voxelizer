@@ -1,6 +1,7 @@
+// @ts-ignore
 import initWasm from 'voxelized-rs/voxelized_rs_bg.wasm?init'
 import * as wasm from 'voxelized-rs/voxelized_rs_bg.js'
-import { atlas2occ, ATLAS_URL, REGION } from './utils'
+import { atlas2occ, ATLAS_EXT, ATLAS_URL, REGION } from './utils'
 import type { WorkerMessage, WorkerResponse } from './scene'
 
 let isReady = false
@@ -58,7 +59,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         const task = async () => {
                 try {
                         await init()
-                        const bitmap = await loadImage(`${ATLAS_URL}/17_${i}_${j}.png`, ctrl.signal)
+                        const bitmap = await loadImage(`${ATLAS_URL}/17_${i}_${j}.${ATLAS_EXT}`, ctrl.signal)
                         if (ctrl.signal.aborted) return done()
                         if (mode === 'image') {
                                 post({ id, bitmap, mode }, [bitmap])

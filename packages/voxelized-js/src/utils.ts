@@ -7,6 +7,7 @@
 
 // for y in {51619..51626}; do for x in {116358..116467}; do yarn script2 --z 17 --x $x --y $y; done; done
 export const SCOPE = { x0: 116358, x1: 116467, y0: 51619, y1: 51626 }
+// export const SCOPE = { x0: 116413, x1: 116417, y0: 51621, y1: 51625 }
 
 export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
@@ -15,8 +16,9 @@ export const TOTAL = REGION * REGION * REGION
 export const PREBUILD = 4
 export const PREFETCH = 4
 export const PREPURGE = 64
-export const ATLAS_URL = 'http://localhost:5500/logs/v4'
-// export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3`
+export const ATLAS_EXT = 'webp'
+export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v4`
+// export const ATLAS_URL = 'http://localhost:5500/logs/v5/12_cwebp_nearlossless_rgba_nl60'
 
 export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => [(i - SCOPE.x0) << 8, 0, (j - SCOPE.y0) << 8]
 export const local = (x: number, y: number, z: number) => (x | 0) + ((y | 0) + (z | 0) * REGION) * REGION
@@ -131,8 +133,8 @@ export const atlas2occ = (data: Uint8ClampedArray, width: number, height: number
         const occ = new Uint8Array(TOTAL)
         const pixels = width * height
         for (let i = 0; i < pixels; i++) {
-                const alpha = data[i * 4 + 3]
-                if (alpha === 0) continue
+                // if ((data[i * 4] | data[i * 4 + 1] | data[i * 4 + 2]) === 0) continue
+                if (data[i * 4 + 3] === 0) continue
                 const ax = i % width
                 const ay = (i / width) | 0
                 const id = uv2m(ax, ay)
