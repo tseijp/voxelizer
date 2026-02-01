@@ -15,7 +15,7 @@ const init = async () => {
 const controllers = new Map<number, AbortController>()
 
 const loadImage = async (url = '', signal?: AbortSignal) => {
-        const res = await fetch(url, { mode: 'cors', signal }) // , cache: 'reload' @TODO FIX
+        const res = await fetch(url, { signal, mode: 'cors', cache: 'reload' })
         const blob = await res.blob()
         if (blob.size <= 0) throw new Error('empty-atlas')
         const bitmap = await createImageBitmap(blob)
