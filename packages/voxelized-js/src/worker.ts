@@ -4,19 +4,21 @@ import * as wasm from 'voxelized-rs/voxelized_rs_bg.js'
 import { atlas2occ, ATLAS_EXT, ATLAS_URL, REGION } from './utils'
 import type { WorkerMessage, WorkerResponse } from './scene'
 
-let isReady = false
-const init = async () => {
-        if (isReady) return
-        const instance = await initWasm({ './voxelized_rs_bg.js': wasm })
-        wasm.__wbg_set_wasm(instance.exports)
-        isReady = true
+let promise: Promise<void> | null = null
+const init = () => {
+        if (promise) return promise
+        promise = initWasm({ './voxelized_rs_bg.js': wasm }).then((instance: any) => {
+                wasm.__wbg_set_wasm(instance.exports)
+        })
+        return promise
 }
 
 const controllers = new Map<number, AbortController>()
 
 const loadImage = async (url = '', signal?: AbortSignal) => {
-        const res = await fetch(url, { mode: 'cors', signal })
+        const res = await fetch(url, { signal, mode: 'cors' }) // @MEMO DO NOT SET: `cache: 'reload'`
         const blob = await res.blob()
+        if (blob.size <= 0) throw new Error('empty-atlas')
         const bitmap = await createImageBitmap(blob)
         return bitmap
 }

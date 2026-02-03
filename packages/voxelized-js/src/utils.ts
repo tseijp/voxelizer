@@ -17,7 +17,7 @@ export const PREBUILD = 4
 export const PREFETCH = 4
 export const PREPURGE = 64
 export const ATLAS_EXT = 'webp'
-export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v4`
+export const ATLAS_URL = `https://navigator-r2.glre.dev/v4`
 // export const ATLAS_URL = 'http://localhost:5500/logs/v5/12_cwebp_nearlossless_rgba_nl60'
 
 export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => [(i - SCOPE.x0) << 8, 0, (j - SCOPE.y0) << 8]
