@@ -108,9 +108,6 @@ const gl = createGL({
         instanceCount: 1,
         vert,
         frag,
-        resize() {
-                cam.update(gl.size[0] / gl.size[1])
-        },
         render() {
                 pt = ts
                 ts = performance.now()
