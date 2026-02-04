@@ -11,7 +11,7 @@
                 "cf-typegen": "wrangler types --env-interface CloudflareBindings"
         },
         "dependencies": {
-                "glre": "0.51.0"
+                "glre": "0.52.0"
         },
         "devDependencies": {
                 "typescript": "*",
