@@ -1,18 +1,126 @@
-export const SCOPE = { x0: 28, x1: 123, y0: 75, y1: 79 }
+// export const SCOPE = { x0: 28, x1: 123, y0: 75, y1: 79 }
+
+// export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 }
+// export const SCOPE = { x0: 116414, x1: 116416, y0: 51622, y1: 51624 }
+// export const SCOPE = { x0: 116413, x1: 116417, y0: 51620, y1: 51624 }
+// export const SCOPE = { x0: 116413, x1: 116417, y0: 51615, y1: 51624 }
+
+export const SCOPE = { x0: 116358, x1: 116466, y0: 51619, y1: 51627 }
+
 export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
-export const CHUNK = 16
 export const CACHE = 32
 export const REGION = 256
 export const PREFETCH = 16
-export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3` // `http://localhost:5173/logs`
-export const scoped = (i = 0, j = 0) => SCOPE.x0 <= i && i <= SCOPE.x1 && SCOPE.y0 <= j && j <= SCOPE.y1
-export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => ({ x: REGION * (i - SCOPE.x0), y: 0, z: REGION * (SCOPE.y1 - j) })
-export const posOf = (pos = V.create()) => ({ i: SCOPE.x0 + Math.floor(pos[0] / REGION), j: SCOPE.y1 - Math.floor(pos[2] / REGION) })
+export const ATLAS_URL = 'http://localhost:5500/logs/v4'
+// export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3`
+
+export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => ({ x: REGION * (i - SCOPE.x0), y: 0, z: REGION * (j - SCOPE.y0) })
+export const posOf = (pos = V.create()) => ({ i: SCOPE.x0 + Math.floor(pos[0] / REGION), j: SCOPE.y0 + Math.floor(pos[2] / REGION) })
 export const range = (n = 0) => [...Array(n).keys()]
-export const chunkId = (i = 0, j = 0, k = 0) => i + j * CHUNK + k * CHUNK * CHUNK
 export const regionId = (i = 0, j = 0) => i + ROW * j
 export const culling = (VP = M.create(), rx = 0, ry = 0, rz = 0) => visSphere(VP as number[], rx + 128, ry + 128, rz + 128, Math.sqrt(256 * 256 * 3) * 0.5)
+
+export const scoped = (i = 0, j = 0) => {
+        // if (i === 78) if (j === 75) return false
+        // if (i === 78) if (j === 74) return true
+        // if (i === 78) if (j === 73) return true
+        // if (i === 78) if (j === 72) return true
+        if (i < SCOPE.x0) return false
+        if (i > SCOPE.x1) return false
+        if (j < SCOPE.y0) return false
+        if (j > SCOPE.y1) return false
+        return true
+}
+
+export const xyz2m = (x: number, y: number, z: number) => {
+        x = x >>> 0
+        y = y >>> 0
+        z = z >>> 0
+        x = (x | (x << 16)) & 0xff0000ff
+        y = (y | (y << 16)) & 0xff0000ff
+        z = (z | (z << 16)) & 0xff0000ff
+        x = (x | (x << 8)) & 0x0300f00f
+        y = (y | (y << 8)) & 0x0300f00f
+        z = (z | (z << 8)) & 0x0300f00f
+        x = (x | (x << 4)) & 0x030c30c3
+        y = (y | (y << 4)) & 0x030c30c3
+        z = (z | (z << 4)) & 0x030c30c3
+        x = (x | (x << 2)) & 0x09249249
+        y = (y | (y << 2)) & 0x09249249
+        z = (z | (z << 2)) & 0x09249249
+        return (x | (y << 1) | (z << 2)) >>> 0
+}
+
+export const m2xyz = (morton: number): [number, number, number] => {
+        let x = morton >>> 0
+        let y = (morton >>> 1) >>> 0
+        let z = (morton >>> 2) >>> 0
+        x = x & 0x09249249
+        y = y & 0x09249249
+        z = z & 0x09249249
+        x = (x | (x >>> 2)) & 0x030c30c3
+        y = (y | (y >>> 2)) & 0x030c30c3
+        z = (z | (z >>> 2)) & 0x030c30c3
+        x = (x | (x >>> 4)) & 0x0300f00f
+        y = (y | (y >>> 4)) & 0x0300f00f
+        z = (z | (z >>> 4)) & 0x0300f00f
+        x = (x | (x >>> 8)) & 0xff0000ff
+        y = (y | (y >>> 8)) & 0xff0000ff
+        z = (z | (z >>> 8)) & 0xff0000ff
+        x = (x | (x >>> 16)) & 0x000003ff
+        y = (y | (y >>> 16)) & 0x000003ff
+        z = (z | (z >>> 16)) & 0x000003ff
+        return [x, y, z]
+}
+
+export const m2uv = (morton: number): [number, number] => {
+        let x = morton >>> 0
+        let y = (morton >>> 1) >>> 0
+        x = x & 0x55555555
+        y = y & 0x55555555
+        x = (x | (x >>> 1)) & 0x33333333
+        y = (y | (y >>> 1)) & 0x33333333
+        x = (x | (x >>> 2)) & 0x0f0f0f0f
+        y = (y | (y >>> 2)) & 0x0f0f0f0f
+        x = (x | (x >>> 4)) & 0x00ff00ff
+        y = (y | (y >>> 4)) & 0x00ff00ff
+        x = (x | (x >>> 8)) & 0x0000ffff
+        y = (y | (y >>> 8)) & 0x0000ffff
+        return [x, y]
+}
+
+export const uv2m = (x: number, y: number) => {
+        x = x >>> 0
+        y = y >>> 0
+        x = x & 0x0000ffff
+        y = y & 0x0000ffff
+        x = (x | (x << 8)) & 0x00ff00ff
+        y = (y | (y << 8)) & 0x00ff00ff
+        x = (x | (x << 4)) & 0x0f0f0f0f
+        y = (y | (y << 4)) & 0x0f0f0f0f
+        x = (x | (x << 2)) & 0x33333333
+        y = (y | (y << 2)) & 0x33333333
+        x = (x | (x << 1)) & 0x55555555
+        y = (y | (y << 1)) & 0x55555555
+        return ((y << 1) | x) >>> 0
+}
+
+export const atlas2occ = (data: Uint8ClampedArray, width: number, height: number) => {
+        const total = REGION * REGION * REGION
+        const occ = new Uint8Array(total)
+        const pixels = width * height
+        for (let i = 0; i < pixels; i++) {
+                const alpha = data[i * 4 + 3]
+                if (alpha === 0) continue
+                const ax = i % width
+                const ay = (i / width) | 0
+                const id = uv2m(ax, ay)
+                const [x, y, z] = m2xyz(id)
+                occ[x + (y + z * REGION) * REGION] = 1
+        }
+        return occ
+}
 
 export const timer = (t = 6) => {
         const start = performance.now()
@@ -105,6 +213,7 @@ export const V = {
                 return o
         },
 }
+
 export const M = {
         create: (): number[] => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
         identity: (o: number[]) => {
@@ -127,16 +236,16 @@ export const M = {
                 return o
         },
         rotateX: (out: number[], a: number[], rad: number) => {
-                const s = Math.sin(rad),
-                        c = Math.cos(rad)
-                const a10 = a[4],
-                        a11 = a[5],
-                        a12 = a[6],
-                        a13 = a[7]
-                const a20 = a[8],
-                        a21 = a[9],
-                        a22 = a[10],
-                        a23 = a[11]
+                const s = Math.sin(rad)
+                const c = Math.cos(rad)
+                const a10 = a[4]
+                const a11 = a[5]
+                const a12 = a[6]
+                const a13 = a[7]
+                const a20 = a[8]
+                const a21 = a[9]
+                const a22 = a[10]
+                const a23 = a[11]
                 if (a !== out) {
                         out[0] = a[0]
                         out[1] = a[1]
@@ -164,10 +273,10 @@ export const M = {
                 const a01 = a[1]
                 const a02 = a[2]
                 const a03 = a[3]
-                const a20 = a[8],
-                        a21 = a[9],
-                        a22 = a[10],
-                        a23 = a[11]
+                const a20 = a[8]
+                const a21 = a[9]
+                const a22 = a[10]
+                const a23 = a[11]
                 if (a !== out) {
                         out[4] = a[4]
                         out[5] = a[5]

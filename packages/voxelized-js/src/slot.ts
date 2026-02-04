@@ -1,5 +1,5 @@
 import { createContext, range, timer } from './utils'
-import type { Region } from './region'
+import type { Region } from './regions'
 
 const createSlot = (index = 0) => {
         const ctx = createContext() as CanvasRenderingContext2D
@@ -15,7 +15,7 @@ const createSlot = (index = 0) => {
         }
         const assign = (c: WebGL2RenderingContext, pg: WebGLProgram, img: HTMLImageElement) => {
                 ctx.clearRect(0, 0, 4096, 4096)
-                ctx.drawImage(img, 0, 0, 4096, 4096)
+                ctx.drawImage(img, 0, 0, img.width, img.height)
                 if (!atlas) atlas = c.getUniformLocation(pg, `iAtlas${index}`) as WebGLUniformLocation
                 if (!offset) offset = c.getUniformLocation(pg, `iOffset${index}`) as WebGLUniformLocation
                 if (!atlas || !offset || !region) return false
@@ -85,7 +85,7 @@ export const createSlots = (size = 16) => {
                 const slot = owner[index]
                 if (slot.region() !== r) return false
                 if (!slot.ready(c, pg, budget)) return false
-                return r.chunk(slot.ctx(), index, budget)
+                return r.build(slot.ctx(), index)
         }
         const _release = (keep: Set<Region>) => {
                 owner.forEach((slot) => {
@@ -97,7 +97,7 @@ export const createSlots = (size = 16) => {
                 _release((keep = next))
                 cursor = 0
                 pending = Array.from(keep)
-                pending.forEach((r) => r.cursor())
+                pending.forEach((r) => r.resetMesh())
         }
         const step = (c: WebGL2RenderingContext, pg: WebGLProgram, budget = 6) => {
                 const start = performance.now()
