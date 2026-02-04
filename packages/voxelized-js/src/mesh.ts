@@ -11,6 +11,7 @@ export const createMesh = () => {
         const _buf = {} as Record<string, WebGLBuffer>
         const _attr = (c: WebGL2RenderingContext, pg: WebGLProgram, data: number[], key = 'pos', size = 3) => {
                 const loc = c.getAttribLocation(pg, key)
+                if (loc < 0) return
                 const array = new Float32Array(data)
                 const buffer = (_buf[key] = _buf[key] || c.createBuffer())
                 c.bindBuffer(c.ARRAY_BUFFER, buffer)
@@ -30,6 +31,20 @@ export const createMesh = () => {
                 }
                 c.bufferSubData(c.ARRAY_BUFFER, 0, array)
         }
+        const draw = (c: WebGL2RenderingContext, pg: WebGLProgram, vao: WebGLVertexArrayObject) => {
+                if (!count) {
+                        pos.push(0, 0, 0)
+                        scl.push(1, 1, 1)
+                        aid.push(0)
+                        count = 1
+                }
+                c.bindVertexArray(vao)
+                _attr(c, pg, scl, 'scl', 3)
+                _attr(c, pg, pos, 'pos', 3)
+                _attr(c, pg, aid, 'aid', 1)
+                c.bindVertexArray(null)
+                return count
+        }
         const merge = (built: { pos: ArrayLike<number>; scl: ArrayLike<number>; cnt: number }, index = 0, ox = 0, oy = 0, oz = 0) => {
                 for (let i = 0; i < built.cnt; i++) {
                         _pos.push(built.pos[i * 3] + ox, built.pos[i * 3 + 1] + oy, built.pos[i * 3 + 2] + oz)
@@ -37,18 +52,6 @@ export const createMesh = () => {
                         _aid.push(index)
                 }
                 _count += built.cnt
-        }
-        const draw = (c: WebGL2RenderingContext, pg: WebGLProgram) => {
-                if (!count) {
-                        pos.push(0, 0, 0)
-                        scl.push(1, 1, 1)
-                        aid.push(0)
-                        count = 1
-                }
-                _attr(c, pg, scl, 'scl', 3)
-                _attr(c, pg, pos, 'pos', 3)
-                _attr(c, pg, aid, 'aid', 1)
-                return count
         }
         const reset = () => {
                 _pos.length = _scl.length = _aid.length = _count = 0
