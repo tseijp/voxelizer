@@ -118,8 +118,10 @@ export const createRegion = (i = SCOPE.x0, j = SCOPE.y0, mesh: Mesh, queues: Que
                 if (result.mode !== 'full') return true
                 return false
         }
+        const bitmap = () => result?.bitmap
+        const occ = () => result?.occ
         const [x, y, z] = offOf(i, j)
-        return { id: regionId(i, j), x, y, z, i, j, prefetch, image, build, pick, dispose, fetching, reset, tune, slot: -1, bitmap: () => result?.bitmap }
+        return { id: regionId(i, j), x, y, z, i, j, prefetch, image, build, pick, dispose, fetching, reset, tune, slot: -1, bitmap, occ }
 }
 
 export type Region = ReturnType<typeof createRegion>

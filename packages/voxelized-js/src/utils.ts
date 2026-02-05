@@ -6,9 +6,9 @@
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51615, y1: 51624 }
 
 // for y in {51619..51626}; do for x in {116358..116467}; do yarn script2 --z 17 --x $x --y $y; done; done
-export const SCOPE = { x0: 116358, x1: 116467, y0: 51619, y1: 51626 }
+// export const SCOPE = { x0: 116358, x1: 116467, y0: 51619, y1: 51626 }
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51621, y1: 51625 } // 25 region
-// export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 } // 1 region
+export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 } // 1 region
 
 export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
@@ -31,6 +31,21 @@ export const culling = (VP = M.create(), rx = 0, ry = 0, rz = 0) => visSphere(VP
 export const localOf = (wx: number, wy: number, wz: number, ri: number, rj: number): [number, number, number] => {
         const [ox, , oz] = offOf(ri, rj)
         return [wx - ox, wy, wz - oz]
+}
+
+export const loadBitmap = async (url = '', signal?: AbortSignal) => {
+        const res = await fetch(url, { signal, mode: 'cors' }) // @MEMO DO NOT SET: `cache: 'reload'`
+        const blob = await res.blob()
+        if (blob.size <= 0) throw new Error('empty-atlas')
+        const bitmap = await createImageBitmap(blob)
+        return bitmap
+}
+
+export const loadContext = (bitmap: ImageBitmap) => {
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+        const ctx = canvas.getContext('2d', { willReadFrequently: true }) as OffscreenCanvasRenderingContext2D
+        ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height)
+        return ctx
 }
 
 export const withinRange = (dx: number, dy: number, range: number) => Math.abs(dx) < range && Math.abs(dy) < range

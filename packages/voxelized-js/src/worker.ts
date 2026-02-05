@@ -1,10 +1,11 @@
 // @ts-ignore
 import initWasm from 'voxelized-rs/voxelized_rs_bg.wasm?init'
 import * as wasm from 'voxelized-rs/voxelized_rs_bg.js'
-import { atlas2occ, ATLAS_EXT, ATLAS_URL, REGION } from './utils'
+import { loadBitmap, ATLAS_EXT, ATLAS_URL, REGION, atlas2occ, loadContext } from './utils'
 import type { WorkerMessage, WorkerResponse } from './scene'
 
 let promise: Promise<void> | null = null
+
 const init = () => {
         if (promise) return promise
         promise = initWasm({ './voxelized_rs_bg.js': wasm }).then((instance: any) => {
@@ -15,19 +16,9 @@ const init = () => {
 
 const controllers = new Map<number, AbortController>()
 
-const loadImage = async (url = '', signal?: AbortSignal) => {
-        const res = await fetch(url, { signal, mode: 'cors' }) // @MEMO DO NOT SET: `cache: 'reload'`
-        const blob = await res.blob()
-        if (blob.size <= 0) throw new Error('empty-atlas')
-        const bitmap = await createImageBitmap(blob)
-        return bitmap
-}
-
 const decodeAtlas = (bitmap: ImageBitmap, signal?: AbortSignal) => {
         if (signal?.aborted) return { occ: undefined as unknown as Uint8Array, mesh: undefined as unknown as any }
-        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
-        const ctx = canvas.getContext('2d', { willReadFrequently: true }) as OffscreenCanvasRenderingContext2D
-        ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height)
+        const ctx = loadContext(bitmap)
         if (signal?.aborted) return { occ: undefined as unknown as Uint8Array, mesh: undefined as unknown as any }
         const data = ctx.getImageData(0, 0, bitmap.width, bitmap.height).data
         if (signal?.aborted) return { occ: undefined as unknown as Uint8Array, mesh: undefined as unknown as any }
@@ -61,7 +52,7 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
         const task = async () => {
                 try {
                         await init()
-                        const bitmap = await loadImage(`${ATLAS_URL}/17_${i}_${j}.${ATLAS_EXT}`, ctrl.signal)
+                        const bitmap = await loadBitmap(`${ATLAS_URL}/17_${i}_${j}.${ATLAS_EXT}`, ctrl.signal)
                         if (ctrl.signal.aborted) return done()
                         if (mode === 'image') {
                                 post({ id, bitmap, mode }, [bitmap])
