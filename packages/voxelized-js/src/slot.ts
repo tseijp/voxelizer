@@ -1,5 +1,5 @@
 import { createContext, range, timer } from './utils'
-import type { Region } from './region'
+import type { Region } from './regions'
 
 const createSlot = (index = 0) => {
         const ctx = createContext() as CanvasRenderingContext2D

@@ -68,7 +68,7 @@ export const createRegions = (mesh: Mesh, cam: Camera, queues: Queues) => {
         }
         const pick = (wx = 0, wy = 0, wz = 0) => {
                 const rxi = SCOPE.x0 + Math.floor(wx / REGION)
-                const ryj = SCOPE.y1 - Math.floor(wz / REGION)
+                const ryj = SCOPE.y0 + Math.floor(wz / REGION)
                 if (rxi < SCOPE.x0 || rxi > SCOPE.x1) return 0
                 if (ryj < SCOPE.y0 || ryj > SCOPE.y1) return 0
                 const rid = regionId(rxi, ryj)
