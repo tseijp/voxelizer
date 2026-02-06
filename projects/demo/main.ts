@@ -3,7 +3,7 @@
 // import { attribute, float, Fn, If, instance, int, ivec2, ivec3, mat4, Scope, texelFetch, texture2D, uniform, varying, vec3, vec4 } from '../../../../packages/core/src/node'
 import { createGL } from 'glre/src'
 import { box } from 'glre/src/buffers'
-import { attribute, float, Fn, If, instance, int, ivec2, ivec3, mat4, Scope, texelFetch, texture2D, uniform, varying, vec3, vec4 } from 'glre/src/node'
+import { float, Fn, If, instance, int, ivec2, ivec3, mat4, Scope, texelFetch, texture2D, uniform, varying, vec3, vec4 } from 'glre/src/node'
 import { createCamera, createMesh, createScene } from 'voxelized-js'
 import VoxelWorker from 'voxelized-js/worker?worker'
 // import type { Float, Int, IVec2, IVec3, Vec3 } from '../../../../packages/core/src/node'
@@ -16,8 +16,8 @@ const range = (n = 0) => [...Array(n).keys()]
 
 const iMVP = uniform<'mat4'>(mat4(), 'iMVP')
 const cube = box()
-const vertex = attribute<'vec3'>(cube.attributes.vertex, 'vertex')
-const normal = attribute<'vec3'>(cube.attributes.normal, 'normal')
+const vertex = cube.vertex('vertex')
+const normal = cube.normal('normal')
 const iAtlas = range(SLOT).map((i) => uniform(texture2D(), `iAtlas${i}`))
 const iOffset = range(SLOT).map((i) => uniform(vec3(0, 0, 0), `iOffset${i}`))
 const scl = instance<'vec3'>(vec3(), 'scl')
