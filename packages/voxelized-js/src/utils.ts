@@ -1,15 +1,7 @@
-// export const SCOPE = { x0: 28, x1: 123, y0: 75, y1: 79 }
-
-// export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 }
-// export const SCOPE = { x0: 116414, x1: 116416, y0: 51622, y1: 51624 }
-// export const SCOPE = { x0: 116413, x1: 116417, y0: 51620, y1: 51624 }
-// export const SCOPE = { x0: 116413, x1: 116417, y0: 51615, y1: 51624 }
-
-// for y in {51619..51626}; do for x in {116358..116467}; do yarn script2 --z 17 --x $x --y $y; done; done
-// export const SCOPE = { x0: 116358, x1: 116467, y0: 51619, y1: 51626 }
+// export const SCOPE = { x0: 116358, x1: 116467, y0: 51619, y1: 51626 } // x full y center
 // export const SCOPE = { x0: 116413, x1: 116417, y0: 51621, y1: 51625 } // 25 region
-// export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 } // 1 region
-// export const SCOPE = { x0: 116399, x1: 116399, y0: 51623, y1: 51623 } // 1 region
+// export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 } // 1 region tokyo tower
+// export const SCOPE = { x0: 116399, x1: 116399, y0: 51623, y1: 51623 } // 1 region shibuya
 
 export const SCOPE = { x0: 116326, x1: 116508, y0: 51545, y1: 51694 } // all region
 
@@ -37,6 +29,7 @@ export const localOf = (wx: number, wy: number, wz: number, ri: number, rj: numb
 }
 
 export const loadBitmap = async (url = '', signal?: AbortSignal) => {
+        if (url === 'https://r2.glre.dev/atlas/v1/17_116410_51623.webp') url = 'IGNORE'
         const res = await fetch(url, { signal, mode: 'cors' }) // @MEMO DO NOT SET: `cache: 'reload'`
         const blob = await res.blob()
         if (blob.size <= 0) throw new Error('empty-atlas')
@@ -64,10 +57,6 @@ export const inRegion = (x: number, y: number, z: number) => {
 }
 
 export const scoped = (i = 0, j = 0) => {
-        // if (i === 78) if (j === 75) return false
-        // if (i === 78) if (j === 74) return true
-        // if (i === 78) if (j === 73) return true
-        // if (i === 78) if (j === 72) return true
         if (i < SCOPE.x0) return false
         if (i > SCOPE.x1) return false
         if (j < SCOPE.y0) return false

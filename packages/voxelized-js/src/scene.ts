@@ -37,7 +37,7 @@ export const createScene = (mesh: Mesh, cam: Camera, worker: Worker, debug?: Deb
                         r.tune('full', 3)
                         active.add(r)
                         activeKeys.add(`${r.i}:${r.j}`)
-                        debug?.setState(r.i, r.j, 'visible')
+                        debug?.setState(r.i, r.j, 'visible', r.isError())
                 })
                 let prebuildCount = 0
                 for (const { r } of all) {
@@ -46,7 +46,7 @@ export const createScene = (mesh: Mesh, cam: Camera, worker: Worker, debug?: Deb
                         r.tune('full', 2)
                         active.add(r)
                         activeKeys.add(`${r.i}:${r.j}`)
-                        debug?.setState(r.i, r.j, 'prebuild')
+                        debug?.setState(r.i, r.j, 'prebuild', r.isError())
                         prebuildCount++
                 }
                 let prefetchCount = 0
@@ -56,7 +56,7 @@ export const createScene = (mesh: Mesh, cam: Camera, worker: Worker, debug?: Deb
                         r.tune('image', 1)
                         active.add(r)
                         activeKeys.add(`${r.i}:${r.j}`)
-                        debug?.setState(r.i, r.j, 'prefetch')
+                        debug?.setState(r.i, r.j, 'prefetch', r.isError())
                         prefetchCount++
                 }
                 debug?.setAnchor(i, j)

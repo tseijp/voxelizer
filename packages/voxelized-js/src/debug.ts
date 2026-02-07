@@ -76,11 +76,12 @@ export const createDebug = () => {
                 dirty = true
                 _flush()
         }
-        const setState = (i: number, j: number, state: CellState) => {
+        const setState = (i: number, j: number, state: CellState, isError = false) => {
                 if (!_enabled()) return
                 const data = ensure(i, j)
-                if (data.state === state) return
-                data.state = state
+                const next = isError ? 'error' : state
+                if (data.state === next) return
+                data.state = next
                 dirty = true
         }
         const setCache = (i: number, j: number, cache: CellCache) => {

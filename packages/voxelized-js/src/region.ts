@@ -5,31 +5,49 @@ import type { Queues, QueueTask } from './queue'
 import type { WorkerMode, WorkerResult } from './scene'
 import type { WorkerBridge } from './store'
 
+const MAX_RETRY = 3
+
 export const createRegion = (i = SCOPE.x0, j = SCOPE.y0, mesh: Mesh, queues: Queues, worker: WorkerBridge, debug?: Debug) => {
         let isMeshed = false
+        let isError = false
         let pending: Promise<WorkerResult | undefined> | undefined
         let queued: QueueTask | undefined
         let result: WorkerResult | undefined
         let level = 'none' as WorkerMode
         let request = 'none' as WorkerMode
+        let retry = 0
         let ticket = 0
-        let failed = 0
         const _done = () => {
                 pending = undefined
                 queued = undefined
                 request = 'none'
+        }
+        const _markError = (mode: 'image' | 'full') => {
+                retry++
+                if (retry < MAX_RETRY) {
+                        console.warn(`Retrying... ${retry}/${MAX_RETRY}\n└ Failed to load atlas: 17_${i}_${j}`)
+                        level = 'none'
+                        debug?.taskDone(i, j, mode)
+                        _done()
+                        return
+                }
+                console.warn(`Failed permanently: 17_${i}_${j}\n└ Max retries (${MAX_RETRY}) exceeded`)
+                isError = true
+                level = 'error'
+                debug?.setState(i, j, 'error')
+                debug?.setCache(i, j, 'empty')
+                debug?.taskDone(i, j, mode)
+                _done()
         }
         const _fetch = async (promise: Promise<WorkerResult>, _ticket: number, mode: 'image' | 'full') => {
                 try {
                         const res = await promise
                         if (_ticket !== ticket) return res
                         if (!res || !res.bitmap) {
-                                failed = performance.now() + 1500
-                                level = 'none'
-                                debug?.taskDone(i, j, mode)
-                                _done()
+                                _markError(mode)
                                 return result
                         }
+                        retry = 0
                         level = res.mesh ? 'full' : 'image'
                         debug?.setCache(i, j, mode === 'full' ? 'cached' : 'empty')
                         debug?.taskDone(i, j, mode)
@@ -37,15 +55,12 @@ export const createRegion = (i = SCOPE.x0, j = SCOPE.y0, mesh: Mesh, queues: Que
                         return (result = res)
                 } catch {
                         if (_ticket !== ticket) return result
-                        failed = performance.now() + 1500
-                        level = 'none'
-                        debug?.taskDone(i, j, mode)
-                        _done()
+                        _markError(mode)
                         return result
                 }
         }
         const _request = (mode: 'image' | 'full', priority = 0) => {
-                if (performance.now() < failed) return Promise.resolve(result)
+                if (isError) return Promise.resolve(result)
                 if (level === 'full') return Promise.resolve(result)
                 if (level === 'image' && mode === 'image') return Promise.resolve(result)
                 if (level === 'image' && mode === 'full' && request !== 'full') pending = undefined
@@ -76,6 +91,7 @@ export const createRegion = (i = SCOPE.x0, j = SCOPE.y0, mesh: Mesh, queues: Que
                 return res?.bitmap!
         }
         const build = (index = 0) => {
+                if (isError) return true
                 if (isMeshed) return true
                 if (!result || !result.mesh) return false
                 mesh.merge({ pos: result.mesh.pos, scl: result.mesh.scl, cnt: result.mesh.cnt }, index, 0, 0, 0)
@@ -89,6 +105,7 @@ export const createRegion = (i = SCOPE.x0, j = SCOPE.y0, mesh: Mesh, queues: Que
         }
         const tune = (mode: WorkerMode, priority = 0) => {
                 if (mode === 'none') return _abort()
+                if (isError) return
                 if (mode === 'image') {
                         if (level === 'full') return
                         if (level === 'image') return
@@ -104,7 +121,8 @@ export const createRegion = (i = SCOPE.x0, j = SCOPE.y0, mesh: Mesh, queues: Que
         }
         const dispose = () => {
                 isMeshed = false
-                failed = 0
+                isError = false
+                retry = 0
                 _abort()
                 result = undefined
                 level = 'none'
@@ -120,8 +138,9 @@ export const createRegion = (i = SCOPE.x0, j = SCOPE.y0, mesh: Mesh, queues: Que
         }
         const bitmap = () => result?.bitmap
         const occ = () => result?.occ
+        const getError = () => isError
         const [x, y, z] = offOf(i, j)
-        return { id: regionId(i, j), x, y, z, i, j, prefetch, image, build, pick, dispose, fetching, reset, tune, slot: -1, bitmap, occ }
+        return { id: regionId(i, j), x, y, z, i, j, prefetch, image, build, pick, dispose, fetching, reset, tune, slot: -1, bitmap, occ, isError: getError }
 }
 
 export type Region = ReturnType<typeof createRegion>

@@ -65,13 +65,14 @@ Web Mercator Tile Coordinates (z=17)
 └────────────────────────────────────────────────────────┘
 ```
 
-| Constant | Value | Description                                   |
-| -------- | ----- | --------------------------------------------- |
-| REGION   | 256   | Voxel count per Region edge                   |
-| SLOT     | 16    | Maximum concurrent Region textures            |
-| PREBUILD | 4     | Regions to pre-generate meshes outside camera |
-| PREFETCH | 4     | Regions to pre-fetch images outside camera    |
-| PREPURGE | 32    | Maximum Regions to keep in memory             |
+| Constant  | Value | Description                                   |
+| --------- | ----- | --------------------------------------------- |
+| REGION    | 256   | Voxel count per Region edge                   |
+| SLOT      | 16    | Maximum concurrent Region textures            |
+| PREBUILD  | 4     | Regions to pre-generate meshes outside camera |
+| PREFETCH  | 4     | Regions to pre-fetch images outside camera    |
+| PREPURGE  | 32    | Maximum Regions to keep in memory             |
+| MAX_RETRY | 3     | Retries before permanent error state          |
 
 ## Data Flow: Transformation Process from Atlas Image to Mesh Rendering
 
@@ -137,8 +138,9 @@ Processing order is: visible (in camera) > prebuild (near, outside camera) > pre
 
 ## Region Lifecycle: State Management from Creation to Disposal
 
-Region has two internal states: level (completion degree) and request (current request).
-Level progresses 'none' → 'image' → 'full', and returns to 'none' via dispose when moving away from camera.
+Region has internal states: level (completion degree), request (current request), and isError (permanent failure).
+Level progresses 'none' → 'image' → 'full', or 'none' → 'error' after MAX_RETRY (3) failures.
+Returns to 'none' via dispose when moving away from camera.
 
 ```ts
 ┌───────────────────────────────────────────────────────────────────────┐
@@ -147,20 +149,25 @@ Level progresses 'none' → 'image' → 'full', and returns to 'none' via dispos
 │                 tune('image', 1)                                      │
 │      ┌───────────────────────────────────────────────┐                │
 │      │                                               ▼                │
-│ ┌────┴────┐     tune('full', 2)    ┌──────────┐    Worker   ┌───────┐ │
-│ │  none   │ ─────────────────────▶ │ fetching │ ──────────▶ │ image │ │
-│ └────┬────┘                        └────┬─────┘             └───┬───┘ │
-│      ▲                                  │                       │     │
-│      │ dispose()                        │ tune('full', 3)       │     │
+│ ┌────┴──┐       tune('full', 2)    ┌──────────┐    Worker   ┌───────┐ │
+│ │  none │ ───────────────────────▶ │ fetching │ ──────────▶ │ image │ │
+│ └───────┘                          └────┬─────┘             └───┬───┘ │
+│      ▲ dispose()                        │ tune('full', 3)       │     │
 │      │                                  ▼                       ▼     │
-│ ┌────┴─────┐    tune('none', -1)   ┌──────────┐    Worker   ┌──────┐  │
-│ │ purged   │ ◀──────────────────── │ building │ ──────────▶ │ full │  │
-│ └──────────┘                       └──────────┘             └──────┘  │
-│                                                                       │
+│ ┌────┴───┐      tune('none', -1)   ┌──────────┐    Worker   ┌──────┐  │
+│ │ purged │ ◀────────────────────── │ building │ ──────────▶ │ full │  │
+│ └────────┘                         └────┬─────┘             └──────┘  │
+│      ▲                                  │ fail 3x                     │
+│      │ dispose()                        ▼                             │
+│      │                             ┌───────┐                          │
+│      └─────────────────────────────│ error │ ← skip render            │
+│                                    └───────┘                          │
 │ Internal Variables:                                                   │
-│   level   = 'none' | 'image' | 'full'  ← completion state             │
+│   level   = 'none' | 'image' | 'full' | 'error' ← completion state    │
 │   request = 'none' | 'image' | 'full'  ← current request              │
 │   ticket  = number                     ← request ID (ignore stale)    │
+│   isError = boolean                    ← permanent error flag         │
+│   retry   = number                     ← failures before error        │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -190,10 +197,11 @@ Slots from Regions outside camera are released and reassigned to new Regions.
 │ ┌────────────────────────────────────────────────────────────────────┐ │
 │ │ 1. Iterate through pending array                                   │ │
 │ │ 2. Skip fetching Regions (hasPending = true)                       │ │
-│ │ 3. Find empty slot and assign Region                               │ │
-│ │ 4. Upload bitmap via texImage2D                                    │ │
-│ │ 5. Combine vertex data with mesh.merge                             │ │
-│ │ 6. On all Regions complete: mesh.commit → reflect in render        │ │
+│ │ 3. Skip error Regions (if isError() is true)                       │ │
+│ │ 4. Find empty slot and assign Region                               │ │
+│ │ 5. Upload bitmap via texImage2D                                    │ │
+│ │ 6. Combine vertex data with mesh.merge                             │ │
+│ │ 7. On all Regions complete: mesh.commit → reflect in render        │ │
 │ └────────────────────────────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────────────────────────────┘
 ```
