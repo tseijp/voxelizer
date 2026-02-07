@@ -72,6 +72,6 @@ pub fn greedy_mesh(src: &js_sys::Uint8Array, size: u32) -> js_sys::Object {
     let o = js_sys::Object::new();
     let _ = js_sys::Reflect::set(&o, &"pos".into(), &js_sys::Float32Array::from(pos.as_slice()));
     let _ = js_sys::Reflect::set(&o, &"scl".into(), &js_sys::Float32Array::from(scl.as_slice()));
-    let _ = js_sys::Reflect::set(&o, &"count".into(), &JsValue::from_f64(count as f64));
+    let _ = js_sys::Reflect::set(&o, &"cnt".into(), &JsValue::from_f64(count as f64));
     o
 }

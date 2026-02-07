@@ -1,18 +1,156 @@
-export const SCOPE = { x0: 28, x1: 123, y0: 75, y1: 79 }
+// export const SCOPE = { x0: 116358, x1: 116467, y0: 51619, y1: 51626 } // x full y center
+// export const SCOPE = { x0: 116413, x1: 116417, y0: 51621, y1: 51625 } // 25 region
+// export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 } // 1 region tokyo tower
+// export const SCOPE = { x0: 116399, x1: 116399, y0: 51623, y1: 51623 } // 1 region shibuya
+
+export const SCOPE = { x0: 116326, x1: 116508, y0: 51545, y1: 51694 } // all region
+
 export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
-export const CHUNK = 16
-export const CACHE = 32
 export const REGION = 256
-export const PREFETCH = 16
-export const ATLAS_URL = `https://pub-a3916cfad25545dc917e91549e7296bc.r2.dev/v3` // `http://localhost:5173/logs`
-export const scoped = (i = 0, j = 0) => SCOPE.x0 <= i && i <= SCOPE.x1 && SCOPE.y0 <= j && j <= SCOPE.y1
-export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => ({ x: REGION * (i - SCOPE.x0), y: 0, z: REGION * (SCOPE.y1 - j) })
-export const posOf = (pos = V.create()) => ({ i: SCOPE.x0 + Math.floor(pos[0] / REGION), j: SCOPE.y1 - Math.floor(pos[2] / REGION) })
+export const TOTAL = REGION * REGION * REGION
+export const PREBUILD = 4
+export const PREFETCH = 4
+export const PREPURGE = 64
+export const ATLAS_EXT = 'webp'
+export const ATLAS_URL = `https://r2.glre.dev/atlas/v1`
+// export const ATLAS_URL = 'http://localhost:5500/logs/v7'
+
+export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => [(i - SCOPE.x0) << 8, 0, (j - SCOPE.y0) << 8]
+export const local = (x: number, y: number, z: number) => (x | 0) + ((y | 0) + (z | 0) * REGION) * REGION
+export const posOf = (x = 0, z = 0) => [SCOPE.x0 + (x >> 8), SCOPE.y0 + (z >> 8)]
 export const range = (n = 0) => [...Array(n).keys()]
-export const chunkId = (i = 0, j = 0, k = 0) => i + j * CHUNK + k * CHUNK * CHUNK
 export const regionId = (i = 0, j = 0) => i + ROW * j
 export const culling = (VP = M.create(), rx = 0, ry = 0, rz = 0) => visSphere(VP as number[], rx + 128, ry + 128, rz + 128, Math.sqrt(256 * 256 * 3) * 0.5)
+
+export const localOf = (wx: number, wy: number, wz: number, ri: number, rj: number): [number, number, number] => {
+        const [ox, , oz] = offOf(ri, rj)
+        return [wx - ox, wy, wz - oz]
+}
+
+export const loadBitmap = async (url = '', signal?: AbortSignal) => {
+        // if (url === 'https://r2.glre.dev/atlas/v1/17_116410_51623.webp') url = 'IGNORE'
+        const res = await fetch(url, { signal, mode: 'cors' }) // @MEMO DO NOT SET: `cache: 'reload'`
+        const blob = await res.blob()
+        if (blob.size <= 0) throw new Error('empty-atlas')
+        const bitmap = await createImageBitmap(blob)
+        return bitmap
+}
+
+export const loadContext = (bitmap: ImageBitmap) => {
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+        const ctx = canvas.getContext('2d', { willReadFrequently: true }) as OffscreenCanvasRenderingContext2D
+        ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height)
+        return ctx
+}
+
+export const withinRange = (dx: number, dy: number, range: number) => Math.abs(dx) < range && Math.abs(dy) < range
+
+export const inRegion = (x: number, y: number, z: number) => {
+        if (x < 0) return false
+        if (y < 0) return false
+        if (z < 0) return false
+        if (x >= REGION) return false
+        if (y >= REGION) return false
+        if (z >= REGION) return false
+        return true
+}
+
+export const scoped = (i = 0, j = 0) => {
+        if (i < SCOPE.x0) return false
+        if (i > SCOPE.x1) return false
+        if (j < SCOPE.y0) return false
+        if (j > SCOPE.y1) return false
+        return true
+}
+
+export const xyz2m = (x: number, y: number, z: number) => {
+        x = x >>> 0
+        y = y >>> 0
+        z = z >>> 0
+        x = (x | (x << 16)) & 0xff0000ff
+        y = (y | (y << 16)) & 0xff0000ff
+        z = (z | (z << 16)) & 0xff0000ff
+        x = (x | (x << 8)) & 0x0300f00f
+        y = (y | (y << 8)) & 0x0300f00f
+        z = (z | (z << 8)) & 0x0300f00f
+        x = (x | (x << 4)) & 0x030c30c3
+        y = (y | (y << 4)) & 0x030c30c3
+        z = (z | (z << 4)) & 0x030c30c3
+        x = (x | (x << 2)) & 0x09249249
+        y = (y | (y << 2)) & 0x09249249
+        z = (z | (z << 2)) & 0x09249249
+        return (x | (y << 1) | (z << 2)) >>> 0
+}
+
+export const m2xyz = (morton: number): [number, number, number] => {
+        let x = morton >>> 0
+        let y = (morton >>> 1) >>> 0
+        let z = (morton >>> 2) >>> 0
+        x = x & 0x09249249
+        y = y & 0x09249249
+        z = z & 0x09249249
+        x = (x | (x >>> 2)) & 0x030c30c3
+        y = (y | (y >>> 2)) & 0x030c30c3
+        z = (z | (z >>> 2)) & 0x030c30c3
+        x = (x | (x >>> 4)) & 0x0300f00f
+        y = (y | (y >>> 4)) & 0x0300f00f
+        z = (z | (z >>> 4)) & 0x0300f00f
+        x = (x | (x >>> 8)) & 0xff0000ff
+        y = (y | (y >>> 8)) & 0xff0000ff
+        z = (z | (z >>> 8)) & 0xff0000ff
+        x = (x | (x >>> 16)) & 0x000003ff
+        y = (y | (y >>> 16)) & 0x000003ff
+        z = (z | (z >>> 16)) & 0x000003ff
+        return [x, y, z]
+}
+
+export const m2uv = (morton: number): [number, number] => {
+        let x = morton >>> 0
+        let y = (morton >>> 1) >>> 0
+        x = x & 0x55555555
+        y = y & 0x55555555
+        x = (x | (x >>> 1)) & 0x33333333
+        y = (y | (y >>> 1)) & 0x33333333
+        x = (x | (x >>> 2)) & 0x0f0f0f0f
+        y = (y | (y >>> 2)) & 0x0f0f0f0f
+        x = (x | (x >>> 4)) & 0x00ff00ff
+        y = (y | (y >>> 4)) & 0x00ff00ff
+        x = (x | (x >>> 8)) & 0x0000ffff
+        y = (y | (y >>> 8)) & 0x0000ffff
+        return [x, y]
+}
+
+export const uv2m = (x: number, y: number) => {
+        x = x >>> 0
+        y = y >>> 0
+        x = x & 0x0000ffff
+        y = y & 0x0000ffff
+        x = (x | (x << 8)) & 0x00ff00ff
+        y = (y | (y << 8)) & 0x00ff00ff
+        x = (x | (x << 4)) & 0x0f0f0f0f
+        y = (y | (y << 4)) & 0x0f0f0f0f
+        x = (x | (x << 2)) & 0x33333333
+        y = (y | (y << 2)) & 0x33333333
+        x = (x | (x << 1)) & 0x55555555
+        y = (y | (y << 1)) & 0x55555555
+        return ((y << 1) | x) >>> 0
+}
+
+export const atlas2occ = (data: Uint8ClampedArray, width: number, height: number) => {
+        const occ = new Uint8Array(TOTAL)
+        const pixels = width * height
+        for (let i = 0; i < pixels; i++) {
+                // if ((data[i * 4] | data[i * 4 + 1] | data[i * 4 + 2]) === 0) continue
+                if (data[i * 4 + 3] === 0) continue
+                const ax = i % width
+                const ay = (i / width) | 0
+                const id = uv2m(ax, ay)
+                const [x, y, z] = m2xyz(id)
+                occ[local(x, y, z)] = 1
+        }
+        return occ
+}
 
 export const timer = (t = 6) => {
         const start = performance.now()
@@ -105,8 +243,42 @@ export const V = {
                 return o
         },
 }
+
 export const M = {
         create: (): number[] => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+        invert: (o: number[], m: number[]) => {
+                const [a00, a01, a02, a03, a10, a11, a12, a13, a20, a21, a22, a23, a30, a31, a32, a33] = m
+                const b00 = a00 * a11 - a01 * a10
+                const b01 = a00 * a12 - a02 * a10
+                const b02 = a00 * a13 - a03 * a10
+                const b03 = a01 * a12 - a02 * a11
+                const b04 = a01 * a13 - a03 * a11
+                const b05 = a02 * a13 - a03 * a12
+                const b06 = a20 * a31 - a21 * a30
+                const b07 = a20 * a32 - a22 * a30
+                const b08 = a20 * a33 - a23 * a30
+                const b09 = a21 * a32 - a22 * a31
+                const b10 = a21 * a33 - a23 * a31
+                const b11 = a22 * a33 - a23 * a32
+                const d = 1 / (b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06)
+                o[0] = (a11 * b11 - a12 * b10 + a13 * b09) * d
+                o[1] = (a02 * b10 - a01 * b11 - a03 * b09) * d
+                o[2] = (a31 * b05 - a32 * b04 + a33 * b03) * d
+                o[3] = (a22 * b04 - a21 * b05 - a23 * b03) * d
+                o[4] = (a12 * b08 - a10 * b11 - a13 * b07) * d
+                o[5] = (a00 * b11 - a02 * b08 + a03 * b07) * d
+                o[6] = (a32 * b02 - a30 * b05 - a33 * b01) * d
+                o[7] = (a20 * b05 - a22 * b02 + a23 * b01) * d
+                o[8] = (a10 * b10 - a11 * b08 + a13 * b06) * d
+                o[9] = (a01 * b08 - a00 * b10 - a03 * b06) * d
+                o[10] = (a30 * b04 - a31 * b02 + a33 * b00) * d
+                o[11] = (a21 * b02 - a20 * b04 - a23 * b00) * d
+                o[12] = (a11 * b07 - a10 * b09 - a12 * b06) * d
+                o[13] = (a00 * b09 - a01 * b07 + a02 * b06) * d
+                o[14] = (a31 * b01 - a30 * b03 - a32 * b00) * d
+                o[15] = (a20 * b03 - a21 * b01 + a22 * b00) * d
+                return o
+        },
         identity: (o: number[]) => {
                 o[0] = 1
                 o[1] = 0
@@ -127,16 +299,16 @@ export const M = {
                 return o
         },
         rotateX: (out: number[], a: number[], rad: number) => {
-                const s = Math.sin(rad),
-                        c = Math.cos(rad)
-                const a10 = a[4],
-                        a11 = a[5],
-                        a12 = a[6],
-                        a13 = a[7]
-                const a20 = a[8],
-                        a21 = a[9],
-                        a22 = a[10],
-                        a23 = a[11]
+                const s = Math.sin(rad)
+                const c = Math.cos(rad)
+                const a10 = a[4]
+                const a11 = a[5]
+                const a12 = a[6]
+                const a13 = a[7]
+                const a20 = a[8]
+                const a21 = a[9]
+                const a22 = a[10]
+                const a23 = a[11]
                 if (a !== out) {
                         out[0] = a[0]
                         out[1] = a[1]
@@ -164,10 +336,10 @@ export const M = {
                 const a01 = a[1]
                 const a02 = a[2]
                 const a03 = a[3]
-                const a20 = a[8],
-                        a21 = a[9],
-                        a22 = a[10],
-                        a23 = a[11]
+                const a20 = a[8]
+                const a21 = a[9]
+                const a22 = a[10]
+                const a23 = a[11]
                 if (a !== out) {
                         out[4] = a[4]
                         out[5] = a[5]
