@@ -334,7 +334,7 @@ listener が 0 個の場合は何も計測しないため、本番環境への�
 │  │ Field      │ Type and Description                                    │ │
 │  ├────────────┼─────────────────────────────────────────────────────────┤ │
 │  │ i, j       │ number: Region's Web Mercator tile coordinates          │ │
-│  │ state      │ 'visible' | 'prebuild' | 'prefetch' | 'idle'            │ │
+│  │ state      │ 'visible' | 'prebuild' | 'prefetch' | 'idle' | 'error'  │ │
 │  │ cache      │ 'empty' | 'fetching' | 'building' | 'cached' | 'purged' │ │
 │  │ prefetchMs │ number?: time taken for image fetch (ms)                │ │
 │  │ prebuildMs │ number?: time taken for mesh generation (ms)            │ │

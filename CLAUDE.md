@@ -337,7 +337,7 @@ When there are 0 listeners, no measurements are taken, ensuring no impact on pro
 │  │ Field      │ Type and Description                                    │ │
 │  ├────────────┼─────────────────────────────────────────────────────────┤ │
 │  │ i, j       │ number: Region's Web Mercator tile coordinates          │ │
-│  │ state      │ 'visible' | 'prebuild' | 'prefetch' | 'idle'            │ │
+│  │ state      │ 'visible' | 'prebuild' | 'prefetch' | 'idle' | 'error'  │ │
 │  │ cache      │ 'empty' | 'fetching' | 'building' | 'cached' | 'purged' │ │
 │  │ prefetchMs │ number?: time taken for image fetch (ms)                │ │
 │  │ prebuildMs │ number?: time taken for mesh generation (ms)            │ │

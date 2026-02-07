@@ -1,4 +1,4 @@
-export type CellState = 'visible' | 'prebuild' | 'prefetch' | 'idle'
+export type CellState = 'visible' | 'prebuild' | 'prefetch' | 'idle' | 'error'
 export type CellCache = 'empty' | 'fetching' | 'building' | 'cached' | 'purged'
 
 export type DebugCell = {
