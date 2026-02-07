@@ -29,7 +29,7 @@ export const localOf = (wx: number, wy: number, wz: number, ri: number, rj: numb
 }
 
 export const loadBitmap = async (url = '', signal?: AbortSignal) => {
-        if (url === 'https://r2.glre.dev/atlas/v1/17_116410_51623.webp') url = 'IGNORE'
+        // if (url === 'https://r2.glre.dev/atlas/v1/17_116410_51623.webp') url = 'IGNORE'
         const res = await fetch(url, { signal, mode: 'cors' }) // @MEMO DO NOT SET: `cache: 'reload'`
         const blob = await res.blob()
         if (blob.size <= 0) throw new Error('empty-atlas')
