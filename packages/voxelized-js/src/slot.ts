@@ -44,6 +44,7 @@ const createSlot = (index = 0) => {
         }
         const ready = (c: WebGL2RenderingContext, pg: WebGLProgram, budget = 6) => {
                 if (!region) return true
+                if (region.isError()) return true
                 if (isReady) return true
                 const img = pending || region.bitmap()
                 if (!img) {
