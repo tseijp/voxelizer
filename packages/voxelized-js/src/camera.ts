@@ -124,6 +124,10 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
                 faceDir(face, yaw, pitch)
                 lookAt(eye, pos, face)
         }
+        const reset = (y = 0, p = -Math.PI / 2 + 0.01) => {
+                faceDir(face, (yaw = y), (pitch = p))
+                lookAt(eye, pos, face)
+        }
         const tick = (dt = 0, pick = (_x = 0, _y = 0, _z = 0) => 0) => {
                 if (mode === 2) return
                 if (mode === -1) {
@@ -148,7 +152,7 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
         const update = (aspect = 1) => perspective(MVP, pos, eye, aspect, SIZE[1] * 0.5)
         faceDir(face, yaw, pitch)
         lookAt(eye, pos, face)
-        return { pos, MVP, tick, turn, shift, space, asdw, update, mode: (x = 0) => (mode = x), yaw: () => yaw, pitch: () => pitch }
+        return { pos, MVP, reset, tick, turn, shift, space, asdw, update, mode: (x = 0) => (mode = x), yaw: () => yaw, pitch: () => pitch }
 }
 
 export type Camera = ReturnType<typeof createCamera>

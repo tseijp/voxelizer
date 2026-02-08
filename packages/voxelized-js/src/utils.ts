@@ -13,8 +13,8 @@ export const PREBUILD = 4
 export const PREFETCH = 4
 export const PREPURGE = 64
 export const ATLAS_EXT = 'webp'
-export const ATLAS_URL = `https://r2.glre.dev/atlas/v1`
-// export const ATLAS_URL = 'http://localhost:5500/logs/v7'
+// export const ATLAS_URL = `https://r2.glre.dev/atlas/v1`
+export const ATLAS_URL = 'http://localhost:5500/logs/v7'
 
 export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => [(i - SCOPE.x0) << 8, 0, (j - SCOPE.y0) << 8]
 export const local = (x: number, y: number, z: number) => (x | 0) + ((y | 0) + (z | 0) * REGION) * REGION
