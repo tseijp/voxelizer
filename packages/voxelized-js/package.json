@@ -1,6 +1,6 @@
 {
         "name": "voxelized-js",
-        "version": "0.9.1",
+        "version": "0.12.0",
         "author": "tseijp",
         "license": "MIT",
         "private": false,
@@ -45,8 +45,17 @@
                         "default": "./dist/index.mjs"
                 },
                 "./worker": {
-                        "import": "./src/worker.ts",
-                        "default": "./src/worker.ts"
+                        "types": "./dist/worker.d.ts",
+                        "import": {
+                                "types": "./dist/worker.d.ts",
+                                "default": "./dist/worker.mjs"
+                        },
+                        "module": {
+                                "types": "./dist/worker.d.ts",
+                                "default": "./dist/worker.mjs"
+                        },
+                        "require": "./dist/worker.js",
+                        "default": "./dist/worker.mjs"
                 },
                 "./*": {
                         "types": "./dist/index.d.ts",
