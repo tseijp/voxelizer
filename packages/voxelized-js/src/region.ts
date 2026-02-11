@@ -13,6 +13,7 @@ export const createRegion = (i = SCOPE.x0, j = SCOPE.y0, mesh: Mesh, queues: Que
         let pending: Promise<WorkerResult | undefined> | undefined
         let queued: QueueTask | undefined
         let result: WorkerResult | undefined
+        let memoCache: any | undefined
         let level = 'none' as WorkerMode
         let request = 'none' as WorkerMode
         let retry = 0
@@ -49,6 +50,7 @@ export const createRegion = (i = SCOPE.x0, j = SCOPE.y0, mesh: Mesh, queues: Que
                         }
                         retry = 0
                         level = res.mesh ? 'full' : 'image'
+                        if (res.memo !== undefined) memoCache = res.memo
                         debug?.setCache(i, j, mode === 'full' ? 'cached' : 'empty')
                         debug?.taskDone(i, j, mode)
                         _done()
@@ -125,6 +127,7 @@ export const createRegion = (i = SCOPE.x0, j = SCOPE.y0, mesh: Mesh, queues: Que
                 retry = 0
                 _abort()
                 result = undefined
+                memoCache = undefined
                 level = 'none'
                 debug?.setCache(i, j, 'purged')
                 return true
@@ -138,9 +141,13 @@ export const createRegion = (i = SCOPE.x0, j = SCOPE.y0, mesh: Mesh, queues: Que
         }
         const bitmap = () => result?.bitmap
         const occ = () => result?.occ
+        const memo = () => memoCache
+        const setMemo = (m: any) => {
+                memoCache = m
+        }
         const getError = () => isError
         const [x, y, z] = offOf(i, j)
-        return { id: regionId(i, j), x, y, z, i, j, prefetch, image, build, pick, dispose, fetching, reset, tune, slot: -1, bitmap, occ, isError: getError }
+        return { id: regionId(i, j), x, y, z, i, j, prefetch, image, build, pick, dispose, fetching, reset, tune, slot: -1, bitmap, occ, memo, setMemo, isError: getError }
 }
 
 export type Region = ReturnType<typeof createRegion>

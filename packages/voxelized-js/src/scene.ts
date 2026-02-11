@@ -122,4 +122,5 @@ export type WorkerResult = {
         mesh?: { pos: Float32Array; scl: Float32Array; cnt: number }
         occ?: Uint8Array
         mode: WorkerMode
+        memo?: any
 }

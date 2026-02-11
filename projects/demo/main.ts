@@ -3,7 +3,7 @@
 // import { attribute, float, Fn, If, instance, int, ivec2, ivec3, mat4, Scope, texelFetch, texture2D, uniform, varying, vec3, vec4 } from '../../../../packages/core/src/node'
 import { createGL } from 'glre/src'
 import { box } from 'glre/src/buffers'
-import { float, Fn, If, instance, int, ivec2, ivec3, mat4, Scope, texelFetch, texture2D, uniform, varying, vec3, vec4 } from 'glre/src/node'
+import { float, Fn, If, instance, int, ivec2, ivec3, mat3, mat4, Scope, texelFetch, texture2D, uniform, uv, varying, vec2, vec3, vec4 } from 'glre/src/node'
 import { createCamera, createMesh, createScene } from 'voxelized-js'
 import VoxelWorker from 'voxelized-js/worker?worker'
 // import type { Float, Int, IVec2, IVec3, Vec3 } from '../../../../packages/core/src/node'
@@ -98,7 +98,7 @@ const frag = Scope(() => {
 
 // @ts-ignore
 const worker = new VoxelWorker()
-const cam = createCamera({ X: 14720, Y: 800, Z: 1152, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: -1 })
+const cam = createCamera({ X: 22912, Y: 800, Z: 20096, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: -1 })
 const mesh = createMesh()
 const scene = createScene(mesh, cam, worker)
 
@@ -121,7 +121,7 @@ const gl = createGL({
                 cam.update(gl.size[0] / gl.size[1])
                 iMVP.value = [...cam.MVP]
                 scene.render(gl.context, gl.program)
-                gl.setInstanceCount(mesh.draw(gl.context, gl.program))
+                gl.setInstanceCount(mesh.draw(gl.context, gl.program, gl.vao))
         },
 }) as GL
 
