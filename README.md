@@ -349,3 +349,120 @@ The discrete nature of voxel data makes it ideal for interactive applications wh
 ボクセルデータの離散的な性質は、ユーザーが環境を変更できるインタラクティブアプリケーションに理想的です。変更に複雑なアルゴリズムを必要とする三角形メッシュとは異なり、ボクセルデータは整数座標での直接操作と即座の視覚フィードバックを可能にします。これにより都市地理を教える教育ツールから協調的なバーチャルワールド構築体験まで、様々なアプリケーションを可能にします。
 
 </details>
+
+## Brush up
+
+### hierarchical pathfinding A-star（`HPA*`）
+
+- service: [navigator.glre.dev](https://navigator.glre.dev)
+- require: [navigator.glre.dev/claude/ja](https://navigator.glre.dev/claude/ja)
+- proposal: [navigator.glre.dev/readme/ja](https://navigator.glre.dev/readme/ja)
+- schedule: [docs.google.com/spreadsheets](https://docs.google.com/spreadsheets/d/1HLuEUU5CTvMhOYZFNg4IE8dtlqicwMc-EzXwbWefWcU)
+
+<a href="https://navigator.glre.dev">
+  <img src="./20260212.gif" />
+</a>
+<a href="https://navigator.glre.dev">
+  <img src="./20260213.gif" />
+</a>
+
+### morton curve space filling （z-order）
+
+<table>
+  <tr>
+    <td>
+      <h4>hilbert curve</h4>
+      <hr>
+      demo:
+      <a href="https://glre.dev/space/hilbert2d">hilbert2d</a>
+      /
+      <a href="https://glre.dev/space/hilbert3d">hilbert3d</a>
+      <a href="https://glre.dev/space/hilbert2d">
+        <img src="./2026-space-filling-hilbert2d.jpg" />
+      </a>
+      <a href="https://glre.dev/space/hilbert3d">
+        <img src="./2026-space-filling-hilbert3d.jpg" />
+      </a>
+    </td>
+    <td>
+      <h4>morton curve</h4>
+      <hr>
+      demo:
+      <a href="https://glre.dev/space/morton2d">morton2d</a>
+      /
+      <a href="https://glre.dev/space/morton3d">morton3d</a>
+      <a href="https://glre.dev/space/morton2d">
+        <img src="./2026-space-filling-morton2d.jpg" />
+      </a>
+      <a href="https://glre.dev/space/morton3d">
+        <img src="./2026-space-filling-morton3d.jpg" />
+      </a>
+    </td>
+    <td>
+      <h4>original curve</h4>
+      <hr>
+      demo:
+      <a href="https://glre.dev/space/original2d">original2d</a>
+      /
+      <a href="https://glre.dev/space/original3d">original3d</a>
+      <a href="https://glre.dev/space/original2d">
+        <img src="./2026-space-filling-original2d.jpg" />
+      </a>
+      <a href="https://glre.dev/space/original3d">
+        <img src="./2026-space-filling-original3d.jpg" />
+      </a>
+    </td>
+  </tr>
+</table>
+
+### binary greedy meshing （貪欲法）
+
+- demo: [here](https://cloudflare-partyserver-test.tseijp.workers.dev/)
+
+<a href="https://cloudflare-partyserver-test.tseijp.workers.dev/">
+  <img src="./20260214.gif" />
+</a>
+
+### multiple program instancing
+
+- demo: [here](https://glre.dev/instance/multiples)
+
+<a href="https://glre.dev/instance/multiples">
+  <img src="./2026-multiple-program-instancing.jpg" />
+</a>
+
+### priority queue multi threading （web worker）
+
+> - ja: [CLAUDE.ja.md](./CLAUDE.ja.md)
+> - en: [CLAUDE.md](./CLAUDE.md)
+>
+> ```ts
+> ┌───────────────────────────────────────────────────────────────────────┐
+> │                    Region State Transition Diagram                    │
+> ├───────────────────────────────────────────────────────────────────────┤
+> │                 tune('image', 1)                                      │
+> │      ┌───────────────────────────────────────────────┐                │
+> │      │                                               ▼                │
+> │ ┌────┴──┐       tune('full', 2)    ┌──────────┐    Worker   ┌───────┐ │
+> │ │ none  │ ───────────────────────▶ │ fetching │ ──────────▶ │ image │ │
+> │ └───────┘                          └────┬─────┘             └───┬───┘ │
+> │      ▲ dispose()                        │ tune('full', 3)       │     │
+> │      │                                  ▼                       ▼     │
+> │ ┌────┴───┐      tune('none', -1)   ┌──────────┐    Worker   ┌──────┐  │
+> │ │ purged │ ◀────────────────────── │ building │ ──────────▶ │ full │  │
+> │ └────────┘                         └────┬─────┘             └──────┘  │
+> │      ▲                                  │ fail 3x                     │
+> │      │ dispose()                        ▼                             │
+> │      │                             ┌───────┐                          │
+> │      └─────────────────────────────│ error │ ← skip render            │
+> │                                    └───────┘                          │
+> │ Internal Variables:                                                   │
+> │   level   = 'none' | 'image' | 'full' | 'error' ← completion state    │
+> │   request = 'none' | 'image' | 'full'  ← current request              │
+> │   ticket  = number                     ← request ID (ignore stale)    │
+> │   isError = boolean                    ← permanent error flag         │
+> │   retry   = number                     ← failures before error        │
+> └───────────────────────────────────────────────────────────────────────┘
+> ```
+
+### realtime multiple user playing （partyserver）
