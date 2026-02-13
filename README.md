@@ -1,6 +1,6 @@
 # Voxelized Game Engine and 3D Object Voxelizer
 
-<a href="https://glre.dev">
+<a href="https://navigator.glre.dev">
   <img src="./0.jpg" />
 </a>
 
@@ -358,6 +358,7 @@ The discrete nature of voxel data makes it ideal for interactive applications wh
 - require: [navigator.glre.dev/claude/ja](https://navigator.glre.dev/claude/ja)
 - proposal: [navigator.glre.dev/readme/ja](https://navigator.glre.dev/readme/ja)
 - schedule: [docs.google.com/spreadsheets](https://docs.google.com/spreadsheets/d/1HLuEUU5CTvMhOYZFNg4IE8dtlqicwMc-EzXwbWefWcU)
+- slide: [plateau.glre.dev](https://plateau.glre.dev/)
 
 <a href="https://navigator.glre.dev">
   <img src="./20260212.gif" />
