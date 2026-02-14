@@ -6,10 +6,49 @@ const _t0 = V.create()
 const _t1 = V.create()
 const _t2 = M.create()
 const _t3 = M.create()
+
 const clampToFace = (pos = 0, half = 0.5, sign = 0, base = Math.floor(pos)) => (sign > 0 ? Math.min(pos, base + 1 - half) : Math.max(pos, base + half))
+
+const createCollider = ({ SIZE = [0.8, 1.8, 0.8], GRAVITY = -50, JUMP = 12, GROUND = 0, Y = 0 }) => {
+        let isGround = false
+        const collide = (pos: ReturnType<typeof V.create>, vel: ReturnType<typeof V.create>, axis = 0, pick = (_x = 0, _y = 0, _z = 0) => 0) => {
+                const v = vel[axis]
+                if (!v) return
+                const s = Math.sign(v)
+                const xyz = V.clone(pos)
+                xyz[axis] += s
+                if (!pick(...V.floor(xyz, xyz))) return
+                if (axis === 1 && s < 0) isGround = true
+                pos[axis] = clampToFace(pos[axis], SIZE[axis] * 0.5, s)
+                vel[axis] = 0
+        }
+        const tick = (dt = 0, pos: ReturnType<typeof V.create>, vel: ReturnType<typeof V.create>, pick = (_x = 0, _y = 0, _z = 0) => 0) => {
+                vel[1] += GRAVITY * dt
+                const vmax = Math.max(Math.abs(vel[0]), Math.abs(vel[1]), Math.abs(vel[2]))
+                let steps = Math.ceil((vmax * dt) / 0.25)
+                if (steps < 1) steps = 1
+                const sdt = dt / steps
+                isGround = false
+                for (let i = 0; i < steps; i++) {
+                        pos[1] += vel[1] * sdt
+                        collide(pos, vel, 1, pick)
+                        pos[0] += vel[0] * sdt
+                        collide(pos, vel, 0, pick)
+                        pos[2] += vel[2] * sdt
+                        collide(pos, vel, 2, pick)
+                }
+                if (pos[1] < GROUND) void ((pos[1] = Y / 4), (vel[1] = 0))
+        }
+        const jump = (vel: ReturnType<typeof V.create>) => {
+                if (isGround) vel[1] = JUMP
+        }
+        return { tick, jump, isGround: () => isGround }
+}
+
 const lookAt = (eye = V.create(), pos = V.create(), face = V.create()) => {
         V.scaleAndAdd(eye, pos, face, 10)
 }
+
 const faceDir = (out = V.create(), yaw = 0, pitch = 0) => {
         M.identity(_t2)
         M.rotateY(_t2, _t2, yaw)
@@ -56,7 +95,7 @@ const turnRate = (mode = 0) => {
 export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mode = -1, X = 0, Y = 0, Z = 0, DASH = 3, MOVE = 12, JUMP = 12, GROUND = 0, SIZE = [0.8, 1.8, 0.8], GRAVITY = -50, TURN = 1 / 250 }) => {
         let dash = 1
         let scroll = 0
-        let isGround = false
+        const collider = createCollider({ SIZE, GRAVITY, JUMP, GROUND, Y })
         const MVP = M.create()
         const pos = V.fromValues(X, Y, Z)
         const eye = V.fromValues(X - 10, Y, Z)
@@ -74,7 +113,7 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
         }
         const space = (isPress = true) => {
                 if (mode === 0) return asdw(0, isPress ? 1 : 0)
-                if (mode === 1 && isGround && isPress) return void (vel[1] = JUMP)
+                if (mode === 1 && isPress) return collider.jump(vel)
         }
         const turn = (delta = [0, 0]) => {
                 const r = turnRate(mode)
@@ -85,16 +124,9 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
                 faceDir(face, yaw, pitch)
                 lookAt(eye, pos, face)
         }
-        const collide = (axis = 0, pick = (_x = 0, _y = 0, _z = 0) => 0) => {
-                const v = vel[axis]
-                if (!v) return
-                const s = Math.sign(v)
-                const xyz = V.clone(pos)
-                xyz[axis] += s
-                if (!pick(...V.floor(xyz, xyz))) return
-                if (axis === 1 && s < 0) isGround = true
-                pos[axis] = clampToFace(pos[axis], SIZE[axis] * 0.5, s)
-                vel[axis] = 0
+        const reset = (y = 0, p = -Math.PI / 2 + 0.01) => {
+                faceDir(face, (yaw = y), (pitch = p))
+                lookAt(eye, pos, face)
         }
         const tick = (dt = 0, pick = (_x = 0, _y = 0, _z = 0) => 0) => {
                 if (mode === 2) return
@@ -114,28 +146,13 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
                         pos[1] += dir[1] * dt * speed
                         pos[2] += vel[2] * dt
                 }
-                if (mode === 1) {
-                        vel[1] += GRAVITY * dt
-                        const vmax = Math.max(Math.abs(vel[0]), Math.abs(vel[1]), Math.abs(vel[2]))
-                        let steps = Math.ceil((vmax * dt) / 0.25) // 0.25 step size
-                        if (steps < 1) steps = 1
-                        const sdt = dt / steps
-                        isGround = false // update isGround in collide()
-                        for (let i = 0; i < steps; i++) {
-                                pos[1] += vel[1] * sdt
-                                collide(1, pick)
-                                pos[0] += vel[0] * sdt
-                                collide(0, pick)
-                                pos[2] += vel[2] * sdt
-                                collide(2, pick)
-                        }
-                        if (pos[1] < GROUND) void ((pos[1] = Y / 4), (vel[1] = 0))
-                }
+                if (mode === 1) collider.tick(dt, pos, vel, pick)
                 lookAt(eye, pos, face)
         }
+        const update = (aspect = 1) => perspective(MVP, pos, eye, aspect, SIZE[1] * 0.5)
         faceDir(face, yaw, pitch)
         lookAt(eye, pos, face)
-        return { pos, MVP, tick, turn, shift, space, asdw, mode: (x = 0) => (mode = x), update: (aspect = 1) => perspective(MVP, pos, eye, aspect, SIZE[1] * 0.5) }
+        return { pos, MVP, reset, tick, turn, shift, space, asdw, update, mode: (x = 0) => (mode = x), yaw: () => yaw, pitch: () => pitch }
 }
 
 export type Camera = ReturnType<typeof createCamera>

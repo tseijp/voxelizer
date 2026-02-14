@@ -1,23 +1,20 @@
-import { createContext, range, timer } from './utils'
+import { range, timer } from './utils'
 import type { Region } from './region'
 
 const createSlot = (index = 0) => {
-        const ctx = createContext() as CanvasRenderingContext2D
         let tex: WebGLTexture
-        let atlas: WebGLUniformLocation
-        let offset: WebGLUniformLocation
+        let atlas: WebGLUniformLocation | null
+        let offset: WebGLUniformLocation | null
         let region: Region
         let isReady = false
-        let pending: HTMLImageElement
-        const reset = () => {
-                pending = undefined as unknown as HTMLImageElement
+        let pending: ImageBitmap | undefined
+        const _reset = () => {
+                pending = undefined
                 isReady = false
         }
-        const assign = (c: WebGL2RenderingContext, pg: WebGLProgram, img: HTMLImageElement) => {
-                ctx.clearRect(0, 0, 4096, 4096)
-                ctx.drawImage(img, 0, 0, 4096, 4096)
-                if (!atlas) atlas = c.getUniformLocation(pg, `iAtlas${index}`) as WebGLUniformLocation
-                if (!offset) offset = c.getUniformLocation(pg, `iOffset${index}`) as WebGLUniformLocation
+        const assign = (c: WebGL2RenderingContext, pg: WebGLProgram, img: ImageBitmap) => {
+                if (!atlas) atlas = c.getUniformLocation(pg, `iAtlas${index}`)
+                if (!offset) offset = c.getUniformLocation(pg, `iOffset${index}`)
                 if (!atlas || !offset || !region) return false
                 if (!tex) {
                         tex = c.createTexture()
@@ -31,61 +28,61 @@ const createSlot = (index = 0) => {
                         c.activeTexture(c.TEXTURE0 + index)
                         c.bindTexture(c.TEXTURE_2D, tex)
                 }
-                c.texImage2D(c.TEXTURE_2D, 0, c.RGBA, c.RGBA, c.UNSIGNED_BYTE, img) // Do not use ctx.canvas, as some img data will be lost
+                c.texImage2D(c.TEXTURE_2D, 0, c.RGBA, c.RGBA, c.UNSIGNED_BYTE, img)
                 c.uniform1i(atlas, index)
                 c.uniform3fv(offset, new Float32Array([region.x, region.y, region.z]))
-                return (isReady = true)
+                isReady = true
+                return true
         }
         const upload = (c: WebGL2RenderingContext, pg: WebGLProgram, budget = 6) => {
                 if (!pending) return false
                 const checker = timer(budget)
                 const ok = assign(c, pg, pending)
-                pending = undefined as unknown as HTMLImageElement
+                pending = undefined
                 if (!ok || !checker()) return false
                 return true
         }
         const ready = (c: WebGL2RenderingContext, pg: WebGLProgram, budget = 6) => {
                 if (!region) return true
+                if (region.isError()) return true
                 if (isReady) return true
-                const img = pending || region.peek()
+                const img = pending || region.bitmap()
                 if (!img) {
-                        region.prefetch(2)
+                        region.prefetch('full', 2)
                         return false
                 }
                 pending = img
                 return upload(c, pg, budget)
         }
-        const set = (r: Region, index = 0) => {
-                region = r
-                region.slot = index
-                reset()
-        }
         const release = () => {
                 if (!region) return
                 region.slot = -1
                 region = undefined as unknown as Region
-                reset()
+                _reset()
         }
-        return { ready, release, set, ctx: () => ctx, isReady: () => isReady, region: () => region }
+        const set = (r: Region, index = 0) => {
+                region = r
+                region.slot = index
+                _reset()
+        }
+        return { ready, release, set, isReady: () => isReady, region: () => region }
 }
 
 export const createSlots = (size = 16) => {
         const owner = range(size).map(createSlot)
         let pending = [] as Region[]
-        let cursor = 0
         let keep = new Set<Region>()
         const _assign = (c: WebGL2RenderingContext, pg: WebGLProgram, r: Region, budget = 6) => {
                 let index = r.slot
                 if (index < 0) {
                         index = owner.findIndex((slot) => !slot.region())
                         if (index < 0) return false
-                        const slot = owner[index]
-                        slot.set(r, index)
+                        owner[index].set(r, index)
                 }
                 const slot = owner[index]
                 if (slot.region() !== r) return false
                 if (!slot.ready(c, pg, budget)) return false
-                return r.chunk(slot.ctx(), index, budget)
+                return r.build(index)
         }
         const _release = (keep: Set<Region>) => {
                 owner.forEach((slot) => {
@@ -95,19 +92,25 @@ export const createSlots = (size = 16) => {
         }
         const begin = (next: Set<Region>) => {
                 _release((keep = next))
-                cursor = 0
                 pending = Array.from(keep)
-                pending.forEach((r) => r.cursor())
+                pending.forEach((r) => r.reset())
         }
         const step = (c: WebGL2RenderingContext, pg: WebGLProgram, budget = 6) => {
                 const start = performance.now()
                 const inBudget = timer(budget)
-                for (; cursor < pending.length; cursor++) {
-                        if (!inBudget()) break
+                let hasPending = false
+                for (let idx = 0; idx < pending.length; idx++) {
+                        if (!inBudget()) return false
+                        const r = pending[idx]
+                        if (r.fetching()) {
+                                hasPending = true
+                                continue
+                        }
                         const dt = Math.max(0, budget - (performance.now() - start))
-                        if (!_assign(c, pg, pending[cursor], dt)) return false
+                        if (_assign(c, pg, r, dt)) continue
+                        hasPending = true
                 }
-                return cursor >= pending.length
+                return !hasPending
         }
         return { begin, step }
 }

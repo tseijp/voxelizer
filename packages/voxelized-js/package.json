@@ -1,11 +1,10 @@
 {
         "name": "voxelized-js",
-        "version": "0.4.0",
+        "version": "0.12.0",
         "author": "tseijp",
         "license": "MIT",
         "private": false,
         "sideEffect": false,
-        "type": "module",
         "publishConfig": {
                 "access": "public"
         },
@@ -22,9 +21,9 @@
                 "voxeler",
                 "typescript"
         ],
-        "main": "./dist/index.cjs",
+        "main": "./dist/index.js",
         "types": "./dist/index.d.ts",
-        "module": "./dist/index.js",
+        "module": "./dist/index.mjs",
         "exports": {
                 "./packages.json": "./packages.json",
                 "./src": {
@@ -36,27 +35,40 @@
                         "types": "./dist/index.d.ts",
                         "import": {
                                 "types": "./dist/index.d.ts",
-                                "default": "./dist/index.js"
+                                "default": "./dist/index.mjs"
                         },
                         "module": {
                                 "types": "./dist/index.d.ts",
-                                "default": "./dist/index.js"
+                                "default": "./dist/index.mjs"
                         },
-                        "require": "./dist/index.cjs",
-                        "default": "./dist/index.js"
+                        "require": "./dist/index.js",
+                        "default": "./dist/index.mjs"
+                },
+                "./worker": {
+                        "types": "./dist/worker.d.ts",
+                        "import": {
+                                "types": "./dist/worker.d.ts",
+                                "default": "./dist/worker.mjs"
+                        },
+                        "module": {
+                                "types": "./dist/worker.d.ts",
+                                "default": "./dist/worker.mjs"
+                        },
+                        "require": "./dist/worker.js",
+                        "default": "./dist/worker.mjs"
                 },
                 "./*": {
                         "types": "./dist/index.d.ts",
                         "import": {
                                 "types": "./dist/index.d.ts",
-                                "default": "./dist/index.js"
+                                "default": "./dist/index.mjs"
                         },
                         "module": {
                                 "types": "./dist/index.d.ts",
-                                "default": "./dist/index.js"
+                                "default": "./dist/index.mjs"
                         },
-                        "require": "./dist/index.cjs",
-                        "default": "./dist/index.js"
+                        "require": "./dist/index.js",
+                        "default": "./dist/index.mjs"
                 }
         },
         "files": [
@@ -66,6 +78,6 @@
                 "README.md"
         ],
         "dependencies": {
-                "voxelized-rs": "*"
+                "voxelized-rs": "0.2.0"
         }
 }

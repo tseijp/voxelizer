@@ -4,4 +4,8 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
         plugins: [wasm(), topLevelAwait()],
+        worker: {
+                format: 'es',
+                plugins: () => [wasm()],
+        },
 })

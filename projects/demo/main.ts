@@ -1,250 +1,129 @@
+// import { createGL } from '../../../../packages/core/src'
+// import { box } from 'glre/src/buffers'
+// import { attribute, float, Fn, If, instance, int, ivec2, ivec3, mat4, Scope, texelFetch, texture2D, uniform, varying, vec3, vec4 } from '../../../../packages/core/src/node'
 import { createGL } from 'glre/src'
-import { attribute, float, Fn, If, instance, int, ivec2, mat4, Scope, texelFetch, texture2D, uniform, varying, vec3, vec4 } from 'glre/src/node'
-import { createCamera, createMesh, createQueues, createRegions, createSlots } from 'voxelized-js'
-import type { GL } from 'glre/src'
-import type { Float, IVec2, IVec3, Vec3 } from 'glre/src/node'
+import { box } from 'glre/src/buffers'
+import { float, Fn, If, instance, int, ivec2, ivec3, mat4, Scope, texelFetch, texture2D, uniform, uv, varying, vec2, vec3, vec4 } from 'glre/src/node'
+import { createCamera, createMesh, createScene } from 'voxelized-js'
+import VoxelWorker from './worker?worker'
 
-const SCOPE = { x0: 28, x1: 123, y0: 75, y1: 79 }
-const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
+// import type { Float, Int, IVec2, IVec3, Vec3 } from '../../../../packages/core/src/node'
+// import type { GL } from '../../../../packages/core/src'
+
+import type { Float, Int, IVec2, IVec3, Vec3 } from 'glre/src/node'
+import type { GL } from 'glre/src'
+
 const SLOT = 16
-const REGION = 256
 const range = (n = 0) => [...Array(n).keys()]
 
-const createNode = () => {
-        const iMVP = uniform<'mat4'>(mat4(), 'iMVP')
-        const iAtlas = range(SLOT).map((i) => uniform(texture2D(), `iAtlas${i}`))
-        const iOffset = range(SLOT).map((i) => uniform(vec3(0, 0, 0), `iOffset${i}`))
-        const vertex = attribute<'vec3'>([-0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5], 'vertex')
-        const normal = attribute<'vec3'>([-1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1], 'normal')
-        const scl = instance<'vec3'>(vec3(), 'scl')
-        const pos = instance<'vec3'>(vec3(), 'pos')
-        const aid = instance<'float'>(float(), 'aid')
-        const vCenter = varying<'vec3'>(vec3(), 'vCenter')
-        const atlas = Fn(([p]: [IVec3]) => {
-                const ci = p.div(int(16)).mul(int(16)).toVar('ci') // left shift like k & 3
-                const lp = p.sub(ci).toVar('lp') // ................ right shift like k >> 2
-                const a = int(ci.z.div(int(64))).toVar('a')
-                const b = int(ci.z.div(int(16)).sub(a.mul(int(4)))).toVar('b')
-                const c = int(lp.z.div(int(4))).toVar('c')
-                const d = int(lp.z.sub(c.mul(int(4)))).toVar('d')
-                const zt = ivec2(b, a).mul(int(1024))
-                const lt = ivec2(d, c).mul(int(16)).add(lp.xy)
-                return int(4).mul(ci.xy).add(zt).add(lt)
-        })
-        const pick = Fn(([id, uvPix]: [Float, IVec2]) => {
-                const t = vec4(0, 0, 0, 1).toVar('t')
-                range(SLOT).map((i) => {
-                        If(id.equal(i), () => {
-                                t.assign(texelFetch(iAtlas[i], uvPix, int(0)))
-                        })
+const iMVP = uniform<'mat4'>(mat4(), 'iMVP')
+const cube = box()
+const vertex = cube.vertex('vertex')
+const normal = cube.normal('normal')
+const iAtlas = range(SLOT).map((i) => uniform(texture2D(), `iAtlas${i}`))
+const iOffset = range(SLOT).map((i) => uniform(vec3(0, 0, 0), `iOffset${i}`))
+const scl = instance<'vec3'>(vec3(), 'scl')
+const pos = instance<'vec3'>(vec3(), 'pos')
+const aid = instance<'float'>(float(), 'aid')
+const vCenter = varying<'vec3'>(vec3(), 'vCenter')
+const mff0000ff = int(0xff0000ff).constant()
+const m0300f00f = int(0x0300f00f).constant()
+const m030c30c3 = int(0x030c30c3).constant()
+const m09249249 = int(0x09249249).constant()
+const m5555 = int(0x55555555).constant()
+const m3333 = int(0x33333333).constant()
+const m0f0f = int(0x0f0f0f0f).constant()
+const m00ff = int(0x00ff00ff).constant()
+const mffff = int(0x0000ffff).constant()
+const xyz2m = Fn(([xyz]: [IVec3]): Int => {
+        const p = xyz.toVar()
+        p.bitOrAssign(p.shiftLeft(int(16)))
+        p.bitAndAssign(ivec3(mff0000ff))
+        p.bitOrAssign(p.shiftLeft(int(8)))
+        p.bitAndAssign(ivec3(m0300f00f))
+        p.bitOrAssign(p.shiftLeft(int(4)))
+        p.bitAndAssign(ivec3(m030c30c3))
+        p.bitOrAssign(p.shiftLeft(int(2)))
+        p.bitAndAssign(ivec3(m09249249))
+        return p.x.bitOr(p.y.shiftLeft(int(1))).bitOr(p.z.shiftLeft(int(2)))
+})
+const m2uv = Fn(([morton]: [Int]): IVec2 => {
+        const p = ivec2(morton, morton.shiftRight(int(1))).toVar()
+        p.bitAndAssign(ivec2(m5555))
+        p.bitOrAssign(p.shiftRight(int(1)))
+        p.bitAndAssign(ivec2(m3333))
+        p.bitOrAssign(p.shiftRight(int(2)))
+        p.bitAndAssign(ivec2(m0f0f))
+        p.bitOrAssign(p.shiftRight(int(4)))
+        p.bitAndAssign(ivec2(m00ff))
+        p.bitOrAssign(p.shiftRight(int(8)))
+        p.bitAndAssign(ivec2(mffff))
+        return p
+})
+const atlas = Fn(([p]: [IVec3]): IVec2 => {
+        const morton = xyz2m(p.clamp(int(0), int(255))).toVar()
+        return m2uv(morton)
+})
+const pick = Fn(([id, uvPix]: [Float, IVec2]) => {
+        const t = vec4(0, 0, 0, 1).toVar('t')
+        range(SLOT).map((i) => {
+                If(id.equal(i), () => {
+                        t.assign(texelFetch(iAtlas[i], uvPix, int(0)))
                 })
-                return t
         })
-        const diffuse = Fn(([n]: [Vec3]) => {
-                return vec3(-0.33, 0.77, 0.55).normalize().dot(n).mul(0.5).add(0.5)
-        })
-        const vert = Scope(() => {
-                const off = vec3(0, 0, 0).toVar('off')
-                range(SLOT).forEach((i) => {
-                        If(aid.equal(i), () => {
-                                off.assign(iOffset[i])
-                        })
+        return t
+})
+const diffuse = Fn(([n]: [Vec3]) => {
+        return vec3(-0.33, 0.77, 0.55).normalize().dot(n).mul(0.5).add(0.5)
+})
+const vert = Scope(() => {
+        const off = vec3(0, 0, 0).toVar('off')
+        range(SLOT).forEach((i) => {
+                If(aid.equal(i), () => {
+                        off.assign(iOffset[i])
                 })
-                const local = vertex.mul(scl).add(pos)
-                const world = off.add(local)
-                const center = local.sub(normal.sign().mul(0.5)).floor()
-                vCenter.assign(center)
-                return iMVP.mul(vec4(world, 1))
         })
-        const frag = Scope(() => {
-                const p = vCenter.toIVec3()
-                const d = varying(diffuse(normal))
-                const i = varying(aid)
-                const uv = atlas(p).toVar('uv')
-                const rgb = pick(i, uv).rgb.mul(d).toVar('rgb')
-                return vec4(rgb, 1)
-        })
-        return { vert, frag, iMVP }
-}
+        const local = vertex.mul(scl).add(pos)
+        const world = off.add(local)
+        const center = local.sub(normal.sign().mul(0.5)).floor()
+        vCenter.assign(center)
+        return iMVP.mul(vec4(world, 1))
+})
+const frag = Scope(() => {
+        const p = vCenter.toIVec3()
+        const d = varying(diffuse(normal))
+        const i = varying(aid)
+        const uv = atlas(p).toVar('uv')
+        const rgb = pick(i, uv).rgb.mul(d).toVar('rgb')
+        return vec4(rgb, 1)
+})
 
-const createMode = () => {
-        let mode = -1 // 0 is creative
-        let _mode = 1 // last non-pause mode
-        const tab = () => {
-                if (mode === 2) return mode // paused: keep mode on tab
-                if (mode === 0) return (mode = _mode = 1)
-                if (mode === 1) return (mode = _mode = 0)
-                return (_mode = mode)
-        }
-        const esc = () => {
-                if (mode === -1) return (mode = _mode = 1)
-                if (mode === 2) return (mode = _mode)
-                ;[_mode, mode] = [mode, 2]
-                return mode
-        }
-        return { tab, esc }
-}
+const worker = new VoxelWorker()
+const cam = createCamera({ X: 22912, Y: 800, Z: 20096, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: -1 })
+const mesh = createMesh()
+const scene = createScene(mesh, cam, worker)
 
-const createViewer = () => {
-        let isReady = false
-        let isLoading = false
-        let ts = performance.now()
-        let pt = ts
-        let dt = 0
-        let pt2 = ts - 200
-        const cam = createCamera({ X: (Math.random() * 0.5 + 0.5) * ROW * REGION, Y: 720, Z: (REGION * (SCOPE.y1 - SCOPE.y0 + 1)) / 2 })
-        const mesh = createMesh()
-        const mode = createMode()
-        const node = createNode()
-        const slots = createSlots(SLOT)
-        const queues = createQueues(4, 1)
-        const regions = createRegions(mesh as any, cam as any, queues as any)
-        try {
-                cam.update(1280 / 800) // Ensure MVP is valid for culling before first render.
-                regions.vis()
-        } catch {}
+let ts = performance.now()
+let pt = ts
 
-        const press = (isPress = false, e: KeyboardEvent) => {
-                const k = e.code
-                if (k === 'KeyW') cam.asdw(1, isPress ? 1 : 0)
-                if (k === 'KeyS') cam.asdw(1, isPress ? -1 : 0)
-                if (k === 'KeyA') cam.asdw(2, isPress ? 1 : 0)
-                if (k === 'KeyD') cam.asdw(2, isPress ? -1 : 0)
-                if (k === 'Space') cam.space(isPress)
-                if (k === 'ArrowUp') cam.asdw(1, isPress ? 1 : 0)
-                if (k === 'ArrowDown') cam.asdw(1, isPress ? -1 : 0)
-                if (k === 'ArrowLeft') cam.asdw(2, isPress ? 1 : 0)
-                if (k === 'ArrowRight') cam.asdw(2, isPress ? -1 : 0)
-                if (k === 'MetaLeft') cam.shift(isPress)
-                if (k === 'MetaRight') cam.shift(isPress)
-                if (k === 'ShiftLeft') cam.shift(isPress)
-                if (k === 'ShiftRight') cam.shift(isPress)
-                if (k === 'ControlLeft') cam.shift(isPress)
-                if (k === 'ControlRight') cam.shift(isPress)
-                if (k === 'Tab' && isPress) {
-                        e.preventDefault()
-                        cam.mode(mode.tab())
-                }
-        }
-
-        let lastLockTime = 0
-
-        const onLock = () => {
-                lastLockTime = performance.now()
-                cam.mode(mode.esc())
-        }
-
-        const mousemove = (drag: Drag) => {
-                if (drag.device === 'touch') return // @ts-ignore
-                cam.turn([-drag.event.movementX, -drag.event.movementY])
-        }
-
-        const mousedown = (drag: Drag) => {
-                const tryLock = (trial = 0) => {
-                        if (trial > 20) return
-                        if (performance.now() - lastLockTime < 1300) return setTimeout(() => tryLock(trial + 1), 100)
-                        try {
-                                drag.target.requestPointerLock()
-                        } catch (e) {
-                                console.error('pointer lock failed:', e)
-                        }
-                }
-                if (drag.device === 'touch') return
-                if ('requestPointerLock' in drag.target) tryLock()
-        }
-
-        const onKeyUp = (e: KeyboardEvent) => press(false, e)
-
-        const onKeyDown = (e: KeyboardEvent) => press(true, e)
-
-        const resize = (gl: GL) => {
-                cam.update(gl.size[0] / gl.size[1])
-                node.iMVP.value = [...cam.MVP]
-        }
-
-        const render = (gl: GL) => {
+const gl = createGL({
+        precision: 'highp',
+        isWebGL: true,
+        isDepth: true,
+        triangleCount: 12,
+        instanceCount: 1,
+        vert,
+        frag,
+        render() {
                 pt = ts
                 ts = performance.now()
-                dt = Math.min((ts - pt) / 1000, 0.03) // 0.03 is 1 / (30fps)
-                if (mesh.isReady()) {
-                        if (!isReady) document.getElementById('loading')?.remove()
-                        isReady = true
-                        cam.tick(dt, regions.pick)
-                        cam.update(gl.size[0] / gl.size[1])
-                        node.iMVP.value = [...cam.MVP]
-                }
-                if (!isLoading)
-                        if (ts - pt2 >= 100) {
-                                pt2 = ts
-                                mesh.reset()
-                                slots.begin(regions.vis())
-                                isLoading = true
-                        }
-                if (isLoading)
-                        if (slots.step(gl.gl, gl.program, 6)) {
-                                mesh.commit()
-                                isLoading = false
-                        }
-                gl.instanceCount = mesh.draw(gl.gl, gl.program)
-        }
+                const dt = Math.min((ts - pt) / 1000, 0.03)
+                cam.tick(dt, scene.pick)
+                cam.update(gl.size[0] / gl.size[1])
+                iMVP.value = [...cam.MVP]
+                scene.render(gl.context, gl.program)
+                gl.setInstanceCount(mesh.draw(gl.context, gl.program, gl.vao))
+        },
+}) as GL
 
-        const mount = (el: HTMLCanvasElement) => {
-                if (!el) return
-                const isSP = window.innerWidth <= 768
-                if (isSP) return
-                window.addEventListener('keyup', onKeyUp)
-                window.addEventListener('keydown', onKeyDown)
-                document.addEventListener('pointerlockchange', onLock)
-        }
-
-        const clean = (el: HTMLCanvasElement) => {
-                if (!el) return
-                const isSP = window.innerWidth <= 768
-                if (isSP) return
-                window.removeEventListener('keyup', onKeyUp)
-                window.removeEventListener('keydown', onKeyDown)
-                document.removeEventListener('pointerlockchange', onLock)
-        }
-
-        return { mode, node, cam, render, resize, mount, clean, mousedown, mousemove, pt: 0 }
-}
-
-const App = () => {
-        const canvas = document.createElement('canvas')
-        const viewer = createViewer()
-        const gl = createGL({
-                precision: 'highp',
-                // wireframe: true,
-                // isDebug: true,
-                isWebGL: true,
-                isDepth: true,
-                triangleCount: 12, // Total number of cube triangles
-                instanceCount: 1, // count of instanced mesh in initial state
-                vert: viewer.node.vert,
-                frag: viewer.node.frag,
-                render() {
-                        viewer.render(gl)
-                },
-                resize() {
-                        viewer.resize(gl)
-                },
-                mount() {
-                        viewer.mount(gl.el)
-                },
-                clean() {
-                        viewer.clean(gl.el)
-                },
-                dragStart(drag: any) {
-                        viewer.mousedown(drag)
-                },
-                dragging(drag: any) {
-                        viewer.mousemove(drag)
-                },
-        })
-        Object.assign(canvas.style, { top: 0, left: 0, position: 'fixed', width: '100%', height: '100%', background: '#a58e84' })
-        document.body.appendChild(canvas)
-        gl.mount()
-}
-
-App()
-// document.addEventListener('DOMContentLoaded', App)
+gl.mount()
