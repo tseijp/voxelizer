@@ -1,0 +1,4 @@
+AUTH_URL = "http://localhost:5173/api/auth"
+AUTH_SECRET = "random"
+GOOGLE_CLIENT_ID = "xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET = "GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
