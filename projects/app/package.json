@@ -12,7 +12,19 @@
                 "hono": "^4.11.10"
         },
         "devDependencies": {
+                "@auth/core": "^0.41.1",
+                "@auth/drizzle-adapter": "^1.11.1",
                 "@cloudflare/vite-plugin": "^1.2.3",
+                "@hono/auth-js": "^1.1.1",
+                "@tailwindcss/vite": "^4.2.0",
+                "@types/react": "^19.2.14",
+                "@types/react-dom": "^19.2.3",
+                "@vitejs/plugin-react": "^5.1.4",
+                "drizzle-kit": "^0.31.9",
+                "drizzle-orm": "^0.45.1",
+                "hono-party": "^1.0.0",
+                "partyserver": "^0.1.5",
+                "partysocket": "^1.1.13",
                 "vite": "^6.3.5",
                 "vite-ssr-components": "^0.5.2",
                 "wrangler": "^4.17.0"
