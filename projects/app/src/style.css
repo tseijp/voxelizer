@@ -1,3 +1,2 @@
-h1 {
-        font-family: Arial, Helvetica, sans-serif;
-}
+/* src/style.css */
+@import 'tailwindcss';
