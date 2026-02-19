@@ -467,3 +467,64 @@ The discrete nature of voxel data makes it ideal for interactive applications wh
 > ```
 
 ### realtime multiple user playing （partyserver）
+
+## Reference
+
+- hierarchical pathfinding
+     - [x] [GDC Vault Hierarchical Dynamic Pathfinding for Large Voxel Worlds - YouTube](https://www.youtube.com/watch?v=pG9SoTF1mCI)
+     - [x] [Clearance-based Pathfinding and Hierarchical Annotated A\* Search | AiGameDev.com](https://web.archive.org/web/20190411040123/http://aigamedev.com/open/article/clearance-based-pathfinding/)
+     - [x] [Hierarchial-Pathfinding-Research | Repository for Hierarchial Pathfinding Research Made by sophomore student of CITM.](https://alexmelenchon.github.io/Hierarchial-Pathfinding-Research/)
+     - [x] [hierarchical-pathfinding/Assets/Scripts/HierarchicalPathfinder.cs at master · hugoscurti/hierarchical-pathfinding](https://github.com/hugoscurti/hierarchical-pathfinding/blob/master/Assets/Scripts/HierarchicalPathfinder.cs)
+     - [x] [mich101mich/hierarchical_pathfinding: A Rust crate to find Paths on a Grid using HPA* (Hierarchical Pathfinding A*) and Hierarchical Dijkstra](https://github.com/mich101mich/hierarchical_pathfinding)
+     - [x] [Hierarchial-Pathfinding-Research/full_code/Motor2D/j1Pathfinding.cpp at master · AlexMelenchon/Hierarchial-Pathfinding-Research](https://github.com/AlexMelenchon/Hierarchial-Pathfinding-Research/blob/master/full_code/Motor2D/j1Pathfinding.cpp)
+- occlusion culling
+     - [x] [Aokana: オープンワールドゲーム向け GPU 駆動型ボクセル レンダリング フレームワーク](https://arxiv.org/html/2505.02017v1)
+     - [x] [ボクセルエンジンを作ろう - 06 - チャンク最適化](https://sites.google.com/site/letsmakeavoxelengine/home/chunk-optimizations?authuser=0)
+     - [x] [Procedural World：ボクセルオクルージョン](https://procworld.blogspot.com/2015/08/voxel-occlusion.html)
+     - [x] [Occlusion Culling for Chunks? : r/VoxelGameDev](https://www.reddit.com/r/VoxelGameDev/comments/qyqkmm/occlusion_culling_for_chunks/)
+- greedy meshing
+     - [x] [TanTanDev/binary_greedy_mesher_demo](https://github.com/TanTanDev/binary_greedy_mesher_demo)
+     - [x] [cgerikj/binary-greedy-meshing](https://github.com/cgerikj/binary-greedy-meshing)
+     - [x] [cfranssens/bad-minecraft: 人気のサンドボックス ゲーム Minecraft の粗悪なクローン。](https://github.com/cfranssens/bad-minecraft)
+     - [x] [tim-oster/voxel-rs: Rust と OpenGL で書かれたスパースボクセルオクツリーレイトレーサー](https://github.com/tim-oster/voxel-rs)
+- space fill curve
+     - [x] [空間充填曲線 - Wikipedia](https://ja.wikipedia.org/wiki/空間充填曲線)
+     - [x] [空間充填曲線による空間インデックス #フラクタル図形 - Qiita](https://qiita.com/taichi_itoh/items/09e075fbd68b32d26135)
+     - [x] [空間充填曲線の美しさ：ヒルベルト曲線を理解する | Towards Data Science](https://towardsdatascience.com/the-beauty-of-space-filling-curves-understanding-the-hilbert-curve/)
+     - [x] [3D ヒルベルト曲線をさらに少ない命令で計算 – threadlocalmutex.com](https://threadlocalmutex.com/?p=178)
+     - [x] [アルゴリズム - N 次元値をヒルベルト曲線上の点にマッピングする - Stack Overflow](https://stackoverflow.com/questions/499166/mapping-n-dimensional-value-to-a-point-on-hilbert-curve)
+     - [x] [Efficient Deep Space Filling Curve](https://openaccess.thecvf.com/content/ICCV2023/papers/Chen_Efficient_Deep_Space_Filling_Curve_ICCV_2023_paper.pdf)
+     - [x] [shadertoy | Inverse Morton and Hilbert](https://www.shadertoy.com/view/XdlcWr)
+     - [x] [shadertoy | Hilbert Curve Construction](https://www.shadertoy.com/view/3tl3zl)
+     - [x] [shadertoy | Hilbert curve](https://www.shadertoy.com/view/Xl3fzX)
+     - [x] [shadertoy | 3D Hilbert Curve](https://www.shadertoy.com/view/tlf3zX)
+     - [x] [shadertoy | Z curve](https://www.shadertoy.com/view/7ssBz7)
+     - [x] [shadertoy | z-order fail](https://www.shadertoy.com/view/dtsczl)
+     - [x] [Z 階数曲線 - Wikipedia](https://ja.wikipedia.org/wiki/Z階数曲線)
+- frustum culling
+     - [x] [Inigo Quilez :: コンピュータグラフィックス、数学、シェーダー、フラクタル、デモシーンなど](https://iquilezles.org/articles/frustumcorrect/)
+     - [x] [インスタンス化された描画 + フラスタムカリング : r/opengl](https://www.reddit.com/r/opengl/comments/13z9gs8/instanced_drawing_frustum_culling/?tl=ja)
+     - [x] [LearnOpenGL - フラスタムカリング](https://learnopengl.com/Guest-Articles/2021/Scene/Frustum-Culling)
+     - [x] [ボクセルエンジンを作ろう - 09 - フラスタムカリング](https://sites.google.com/site/letsmakeavoxelengine/home/frustum-culling?authuser=0)
+- webassembly
+     - [x] [nshen/vite-plugin-wasm-pack: 🦀 Vite plugin for rust wasm-pack](https://github.com/nshen/vite-plugin-wasm-pack)
+     - [x] [Rust から WebAssembly にコンパイル - WebAssembly | MDN](https://developer.mozilla.org/ja/docs/WebAssembly/Guides/Rust_to_Wasm)
+     - [x] [Vite で Rust+WebAssembly 入門 #vite - Qiita](https://qiita.com/tnagata/items/85831ac5c48de7e74d42)
+     - [x] [Rust を WebAssembly にコンパイルして Vite で使ってみる](https://zenn.dev/kazuhe/articles/60e431b09aa284)
+- hono/auth-js
+     - [x] [hono/auth-js を使って Hono/Cloudflare pages で Google 認証する - Kumatora の技術ブログ](https://www.kumatoratiger.com/posts/hono-cloudfflare-pages-auth-js)
+     - [x] [hono/auth-js と Cloudflare D1/drizzle で ユーザーのサインアップを実装する - Kumatora の技術ブログ](https://www.kumatoratiger.com/posts/hono-cloudfflare-d1-drizzle-auth-js)
+     - [x] [HonoX で Auth.js の CustomPage を使う](https://zenn.dev/nekoya3/articles/5564854fbdffc9)
+     - [x] [Auth.js を使って Hono に Google 認証を設定する](https://zenn.dev/hirokisakabe/articles/ede0cad8d88a9f)
+     - [x] [@hono/auth-js - npm](https://www.npmjs.com/package/@hono/auth-js)
+- texture atlas
+     - [x] [unity - 最適化されたボクセルメッシュに異なるブロックタイプをテクスチャリングする - Game Development Stack Exchange](https://gamedev.stackexchange.com/questions/185036/texturing-different-block-types-on-an-optimized-voxel-mesh)
+     - [x] [テクスチャアトラス、ラッピング、ミップマッピング – 0 FPS](https://0fps.net/2013/07/09/texture-atlases-wrapping-and-mip-mapping/)
+     - [x] [アドバイスが必要です: 貪欲メッシュボクセルモデルに PBR を適用する方法 - ヘルプとサポート - PlayCanvas ディスカッション](https://forum.playcanvas.com/t/need-advice-how-to-apply-pbr-for-greedy-meshed-voxel-models/1542/7)
+- z-fighting
+     - [x] [Hybrid Multi-Frustum Logarithmic Depth Buffer – Cesium](https://cesium.com/blog/2018/05/24/logarithmic-depth/)
+     - [x] [Outerra: Maximizing Depth Buffer Range and Precision](https://outerra.blogspot.com/2012/11/maximizing-depth-buffer-range-and.html)
+     - [x] [Outerra: Logarithmic Depth Buffer](https://outerra.blogspot.com/2009/08/logarithmic-z-buffer.html)
+     - [x] [Outerra: Logarithmic depth buffer optimizations & fixes](https://outerra.blogspot.com/2013/07/logarithmic-depth-buffer-optimizations.html)
+     - [x] [SilverLining と Triton で OpenGL 対数深度バッファを使用する - Sundog Software](https://www.sundog-soft.com/2015/06/using-an-opengl-logarithmic-depth-buffer-in-silverlining-and-triton/)
+     - [x] [A Logarithmic Depth Buffer Example. - Sundog Software](https://sundog-soft.com/2015/09/a-logarithmic-depth-buffer-example/)
