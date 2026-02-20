@@ -10,6 +10,8 @@ import { env } from 'hono/adapter'
 import { createMiddleware } from 'hono/factory'
 import { routePartykitRequest, Server } from 'partyserver'
 import type { Connection, ConnectionContext } from 'partyserver'
+
+const getUserBySub = (DB: D1Database, sub: string) => drizzle(DB).select().from(users).where(eq(users.id, sub)).limit(1)
 const authMiddleware = initAuthConfig((c) => ({
         adapter: DrizzleAdapter(drizzle(c.env.my_d1_tmp)),
         providers: [Google({ clientId: c.env.GOOGLE_CLIENT_ID, clientSecret: c.env.GOOGLE_CLIENT_SECRET })],
@@ -23,9 +25,10 @@ const myMiddleware = createMiddleware(async (c) => {
         const res = await routePartykitRequest(req, env(c))
         return res ?? c.text('Not Found', 404)
 })
-const getUserBySub = (DB: D1Database, sub: string) => drizzle(DB).select().from(users).where(eq(users.id, sub)).limit(1)
+
 type Env = { my_d1_tmp: D1Database; my_r2_tmp: R2Bucket }
 type Conn = Connection<{ username: string }>
+
 export class PartyServer extends Server<Env> {
         users = {} as Record<string, string>
         static options = { hibernate: true }
@@ -43,6 +46,7 @@ export class PartyServer extends Server<Env> {
                 this.broadcast(JSON.stringify(this.users), [conn.id])
         }
 }
+
 export default new Hono<{ Bindings: Env }>()
         .get('/api/res', (c) => c.text('ok'))
         .use('*', authMiddleware)
