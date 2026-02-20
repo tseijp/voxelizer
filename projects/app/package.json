@@ -9,7 +9,9 @@
                 "cf-typegen": "wrangler types --env-interface CloudflareBindings"
         },
         "dependencies": {
-                "hono": "^4.11.10"
+                "glre": "^0.53.0",
+                "hono": "^4.11.10",
+                "voxelized-js": "^0.12.0"
         },
         "devDependencies": {
                 "@auth/core": "^0.41.1",
@@ -22,11 +24,9 @@
                 "@vitejs/plugin-react": "^5.1.4",
                 "drizzle-kit": "^0.31.9",
                 "drizzle-orm": "^0.45.1",
-                "hono-party": "^1.0.0",
                 "partyserver": "^0.1.5",
                 "partysocket": "^1.1.13",
                 "vite": "^6.3.5",
-                "vite-ssr-components": "^0.5.2",
                 "wrangler": "^4.17.0"
         }
 }
