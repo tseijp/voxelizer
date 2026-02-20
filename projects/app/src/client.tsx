@@ -12,7 +12,7 @@ import VoxelWorker from './worker?worker'
 const SLOT = 16
 const range = (n = 0) => [...Array(n).keys()]
 const Game = ({ username }: { username: string }) => {
-        const worldNode = useMemo(() => {
+        const world = useMemo(() => {
                 const geo = capsule({ radius: 0.5, height: 1 })
                 const iMVP = uniform<'mat4'>(mat4(), 'iMVP')
                 const iOffset = range(SLOT).map((i) => uniform<'vec3'>(vec3(), `iOffset${i}`))
@@ -26,7 +26,7 @@ const Game = ({ username }: { username: string }) => {
                         const world = geo.vertex('wVertex').mul(scl).add(pos).add(off)
                         return iMVP.mul(vec4(world, 1))
                 })
-                const frag = Scope(() => vec4(varying(vNormal).normalize().mul(0.5).add(float(0.5)), 1))
+                const frag = vec4(varying(vNormal).normalize().mul(0.5).add(float(0.5)), 1)
                 const textures = Object.fromEntries(range(SLOT).map((i) => [`iAtlas${i}`, null])) as Record<string, any>
                 const uniforms = Object.fromEntries(range(SLOT).map((i) => [`iOffset${i}`, null])) as Record<string, any>
                 uniforms.iMVP = null
@@ -34,7 +34,7 @@ const Game = ({ username }: { username: string }) => {
                 const attributes = { wVertex: null, wNormal: null }
                 return { iMVP, gl: { vert, frag, textures, uniforms, instances, attributes, isWebGL: true, isDepth: true, wireframe: true, triangleCount: geo.count, instanceCount: 1 } }
         }, [])
-        const playerNode = useMemo(() => {
+        const users = useMemo(() => {
                 const geo = capsule({ radius: 0.4, height: 1 })
                 const pMVP = uniform<'mat4'>(mat4(), 'pMVP')
                 const pos = instance<'vec3'>(vec3(), 'pPos')
@@ -85,17 +85,11 @@ const Game = ({ username }: { username: string }) => {
         }, [])
         let ts = performance.now()
         let pt = ts
-        let lastSend = 0
-        const send = () => {
-                const now = performance.now()
-                if (now - lastSend < 50) return
-                lastSend = now
-                socket.send(JSON.stringify([cam.pos[0], cam.pos[1], cam.pos[2]]))
-        }
+        let st = 0
         const gl = useGL(
-                { ...playerNode.gl },
+                { ...users.gl },
                 {
-                        ...worldNode.gl,
+                        ...world.gl,
                         render() {
                                 pt = ts
                                 ts = performance.now()
@@ -115,7 +109,9 @@ const Game = ({ username }: { username: string }) => {
                                         gl.setInstanceCount(count, 0)
                                         gl._instance?.('pPos', players.current, 0)
                                 }
-                                send()
+                                if (ts - st < 50) return
+                                st = ts
+                                socket.send(JSON.stringify([cam.pos[0], cam.pos[1], cam.pos[2]]))
                         },
                         resize() {
                                 cam.update(gl.size[0] / gl.size[1])
