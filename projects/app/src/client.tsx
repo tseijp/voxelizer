@@ -6,29 +6,45 @@ import { createRoot } from 'react-dom/client'
 import useSWRImmutable from 'swr/immutable'
 import { useGL } from 'glre/src/react'
 import { capsule } from 'glre/src/buffers'
-import { float, Scope, instance, mat4, uniform, vec3, vec4, varying } from 'glre/src/node'
+import { If, float, Scope, instance, mat4, uniform, vec3, vec4, varying } from 'glre/src/node'
 import { createCamera, createMesh, createScene } from 'voxelized-js'
 import VoxelWorker from './worker?worker'
+const SLOT = 16
+const range = (n = 0) => [...Array(n).keys()]
 const Game = ({ username }: { username: string }) => {
         const worldNode = useMemo(() => {
                 const geo = capsule({ radius: 0.5, height: 1 })
                 const iMVP = uniform<'mat4'>(mat4(), 'iMVP')
+                const iOffset = range(SLOT).map((i) => uniform<'vec3'>(vec3(), `iOffset${i}`))
                 const pos = instance<'vec3'>(vec3(), 'pos')
                 const scl = instance<'vec3'>(vec3(), 'scl')
-                const vNormal = varying(geo.normal('boxNormal'))
-                const vert = Scope(() => iMVP.mul(vec4(geo.vertex('boxVertex').mul(scl).add(pos), 1)))
+                const aid = instance<'float'>(float(), 'aid')
+                const vNormal = varying(geo.normal('wNormal'))
+                const vert = Scope(() => {
+                        const off = vec3(0, 0, 0).toVar('off')
+                        range(SLOT).forEach((i) => If(aid.equal(i), () => void off.assign(iOffset[i])))
+                        const world = geo.vertex('wVertex').mul(scl).add(pos).add(off)
+                        return iMVP.mul(vec4(world, 1))
+                })
                 const frag = Scope(() => vec4(varying(vNormal).normalize().mul(0.5).add(float(0.5)), 1))
-                return { iMVP, gl: { vert, frag, uniforms: { iMVP: null }, instances: { pos: null, scl: null }, attributes: { boxVertex: null, boxNormal: null }, isWebGL: true, isDepth: true, wireframe: true, triangleCount: geo.count, instanceCount: 1 } }
+                const textures = Object.fromEntries(range(SLOT).map((i) => [`iAtlas${i}`, null])) as Record<string, any>
+                const uniforms = Object.fromEntries(range(SLOT).map((i) => [`iOffset${i}`, null])) as Record<string, any>
+                uniforms.iMVP = null
+                const instances = { pos: null, scl: null, aid: null }
+                const attributes = { wVertex: null, wNormal: null }
+                return { iMVP, gl: { vert, frag, textures, uniforms, instances, attributes, isWebGL: true, isDepth: true, wireframe: true, triangleCount: geo.count, instanceCount: 1 } }
         }, [])
         const playerNode = useMemo(() => {
                 const geo = capsule({ radius: 0.4, height: 1 })
                 const pMVP = uniform<'mat4'>(mat4(), 'pMVP')
                 const pos = instance<'vec3'>(vec3(), 'pPos')
                 const vert = Scope(() => pMVP.mul(vec4(geo.vertex('pVertex').add(pos).add(vec3(0.5, 0, 0.5)), 1)))
-                const frag = vec4(vec3(0.1, 1, 0.3), 1)
-                return { pMVP, gl: { vert, frag, uniforms: { pMVP: null }, instances: { pPos: null }, attributes: { pVertex: null, pNormal: null }, isWebGL: true, isDepth: true, wireframe: true, triangleCount: geo.count, instanceCount: 0 } }
+                const frag = Scope(() => vec4(vec3(0.1, 1, 0.3), 1))
+                const instances = { pPos: null }
+                const attributes = { pVertex: null, pNormal: null }
+                return { pMVP, gl: { vert, frag, uniforms: { pMVP: null }, instances, attributes, isWebGL: true, isDepth: true, wireframe: true, triangleCount: geo.count, instanceCount: 0 } }
         }, [])
-        const cam = useMemo(() => createCamera({ X: 22912, Y: 800, Z: 20096, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: -1 }), [])
+        const cam = useMemo(() => createCamera({ X: 22912, Y: 800, Z: 20096, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: 1 }), [])
         const mesh = useMemo(createMesh, [])
         const scene = useMemo(() => createScene(mesh, cam, new VoxelWorker()), [])
         const players = useRef<Float32Array>(new Float32Array(0))
@@ -39,9 +55,10 @@ const Game = ({ username }: { username: string }) => {
                 party: 'v1',
                 room: 'voxel-party',
                 onMessage: (e) => {
-                        const vals = Object.entries(JSON.parse(e.data) as Record<string, number[]>)
+                        const body = JSON.parse(e.data) as Record<string, string>
+                        const vals = Object.entries(body)
                                 .filter(([k]) => k !== username)
-                                .map(([, v]) => v)
+                                .map(([, v]) => JSON.parse(v) as number[])
                         const arr = new Float32Array(vals.length * 3)
                         vals.forEach((p, i) => arr.set(p, i * 3))
                         players.current = arr
@@ -73,7 +90,7 @@ const Game = ({ username }: { username: string }) => {
                 const now = performance.now()
                 if (now - lastSend < 50) return
                 lastSend = now
-                socket.send(JSON.stringify({ [username]: [...cam.pos] }))
+                socket.send(JSON.stringify([cam.pos[0], cam.pos[1], cam.pos[2]]))
         }
         const gl = useGL(
                 {
@@ -88,10 +105,10 @@ const Game = ({ username }: { username: string }) => {
                                 cam.shift(!!keys.current.shift)
                                 cam.tick(dt, scene.pick)
                                 cam.update(gl.size[0] / gl.size[1])
-                                gl._uniform!('iMVP', [...cam.MVP])
+                                gl._uniform?.('iMVP', [...cam.MVP])
                                 scene.render(gl.context, program.current!)
                                 gl.setInstanceCount(mesh.draw(gl.context, program.current!, vao.current!), 0)
-                                gl._uniform!('pMVP', [...cam.MVP])
+                                gl._uniform?.('pMVP', [...cam.MVP])
                                 const count = players.current.length / 3
                                 if (count > 0) {
                                         gl.setInstanceCount(count, 1)
@@ -101,17 +118,15 @@ const Game = ({ username }: { username: string }) => {
                         },
                         resize() {
                                 cam.update(gl.size[0] / gl.size[1])
-                                gl._uniform!('iMVP', [...cam.MVP])
-                                gl._uniform!('pMVP', [...cam.MVP])
+                                gl._uniform?.('iMVP', [...cam.MVP])
+                                gl._uniform?.('pMVP', [...cam.MVP])
                         },
                         mount() {
                                 program.current = gl.program
                                 vao.current = gl.vao
                         },
                 },
-                {
-                        ...playerNode.gl,
-                }
+                { ...playerNode.gl }
         )
         return <canvas ref={gl.ref} className="fixed top-0 left-0" />
 }
