@@ -93,6 +93,7 @@ const Game = ({ username }: { username: string }) => {
                 socket.send(JSON.stringify([cam.pos[0], cam.pos[1], cam.pos[2]]))
         }
         const gl = useGL(
+                { ...playerNode.gl },
                 {
                         ...worldNode.gl,
                         render() {
@@ -107,12 +108,12 @@ const Game = ({ username }: { username: string }) => {
                                 cam.update(gl.size[0] / gl.size[1])
                                 gl._uniform?.('iMVP', [...cam.MVP])
                                 scene.render(gl.context, program.current!)
-                                gl.setInstanceCount(mesh.draw(gl.context, program.current!, vao.current!), 0)
+                                gl.setInstanceCount(mesh.draw(gl.context, program.current!, vao.current!), 1)
                                 gl._uniform?.('pMVP', [...cam.MVP])
                                 const count = players.current.length / 3
                                 if (count > 0) {
-                                        gl.setInstanceCount(count, 1)
-                                        gl._instance?.('pPos', players.current, 1)
+                                        gl.setInstanceCount(count, 0)
+                                        gl._instance?.('pPos', players.current, 0)
                                 }
                                 send()
                         },
@@ -125,8 +126,7 @@ const Game = ({ username }: { username: string }) => {
                                 program.current = gl.program
                                 vao.current = gl.vao
                         },
-                },
-                { ...playerNode.gl }
+                }
         )
         return <canvas ref={gl.ref} className="fixed top-0 left-0" />
 }
