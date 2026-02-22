@@ -10,18 +10,18 @@ import { If, float, Scope, instance, mat4, uniform, vec3, vec4, varying } from '
 import { createCamera, createMesh, createScene, range } from 'voxelized-js/src'
 import VoxelWorker from './worker?worker'
 const createUsers = () => {
-        const iMVP = uniform<'mat4'>(mat4(), 'iMVP')
-        const geo = capsule({ radius: 0.4, height: 1 })
+        const mvp = uniform<'mat4'>(mat4(), 'mvp')
+        const geo = capsule({ radius: 0.4, height: 1.4 })
         const pos = instance<'vec3'>(vec3(), 'pPos')
         return {
-                iMVP,
+                mvp,
                 gl: {
-                        vert: Scope(() => iMVP.mul(vec4(geo.vertex('pVertex').add(pos).add(vec3(0.5, 0, 0.5)), 1))),
-                        frag: Scope(() => vec4(vec3(0.1, 1, 0.3), 1)),
-                        uniforms: { iMVP: null },
+                        vert: mvp.mul(vec4(geo.vertex('pVertex').add(pos).add(vec3(0.5)), 1)),
+                        frag: vec4(vec3(0.1, 1, 0.3), 1),
+                        uniforms: { mvp: null },
                         instances: { pPos: null },
                         attributes: { pVertex: null, pNormal: null },
-                        triangleCount: geo.count,
+                        count: geo.count,
                         instanceCount: 0,
                         wireframe: true,
                         isWebGL: true,
@@ -30,32 +30,27 @@ const createUsers = () => {
         }
 }
 const createWorld = () => {
+        const mvp = uniform<'mat4'>(mat4(), 'mvp')
         const geo = box()
-        const iMVP = uniform<'mat4'>(mat4(), 'iMVP')
         const pos = instance<'vec3'>(vec3(), 'pos')
         const scl = instance<'vec3'>(vec3(), 'scl')
         const aid = instance<'float'>(float(), 'aid')
         const iOffset = range(16).map((i) => uniform<'vec3'>(vec3(), `iOffset${i}`))
-        const textures = Object.fromEntries(range(16).map((i) => [`iAtlas${i}`, null]))
-        const uniforms = Object.fromEntries(range(16).map((i) => [`iOffset${i}`, null]))
         const vCenter = varying<'vec3'>(vec3(), 'vCenter')
         const wNormal = geo.normal('wNormal')
-        uniforms.iMVP = null
         return {
-                iMVP,
+                mvp,
                 gl: {
                         vert: Scope(() => {
-                                const off = vec3(0, 0, 0).toVar('off')
+                                const off = vec3(0).toVar('off')
                                 range(16).forEach((i) => If(aid.equal(i), () => void off.assign(iOffset[i])))
                                 const local = geo.vertex('wVertex').mul(scl).add(pos)
-                                const world = off.add(local)
-                                const center = local.sub(wNormal.sign().mul(0.5)).floor()
-                                vCenter.assign(center)
-                                return iMVP.mul(vec4(world, 1))
+                                vCenter.assign(local.sub(wNormal.sign().mul(0.5)).floor())
+                                return mvp.mul(vec4(off.add(local), 1))
                         }),
                         frag: vec4(varying(wNormal), 1),
-                        textures,
-                        uniforms,
+                        textures: Object.fromEntries(range(16).map((i) => [`iAtlas${i}`, null])),
+                        uniforms: { ...Object.fromEntries(range(16).map((i) => [`iOffset${i}`, null])), mvp: null },
                         instances: { pos: null, scl: null, aid: null },
                         attributes: { wVertex: null, wNormal: null },
                         triangleCount: 12,
@@ -85,8 +80,8 @@ const createGame = (username: string) => {
                 if (k === 'Space') cam.space(on)
                 if (k === 'ShiftLeft') cam.shift(on)
         }
-        const down = (e: KeyboardEvent) => press(true, e)
-        const up = (e: KeyboardEvent) => press(false, e)
+        const down = press.bind(null, true)
+        const up = press.bind(null, false)
         const render = () => {
                 if (!gl || !pg) return
                 gl.context.useProgram(pg)
@@ -95,24 +90,20 @@ const createGame = (username: string) => {
                 const dt = Math.min((ts - pt) / 1000, 0.03)
                 cam.tick(dt, scene.pick)
                 cam.update(gl.size[0] / gl.size[1])
+                users.mvp.value = world.mvp.value = [...cam.MVP]
                 scene.render(gl.context, pg)
-                gl._uniform?.('iMVP', [...cam.MVP])
                 gl.setInstanceCount(mesh.draw(gl.context, pg, gl.vao), 1)
-                const count = players.length / 3
-                if (count > 0) {
-                        gl.setInstanceCount(count, 0)
+                if (players.length > 0) {
+                        gl.setInstanceCount(players.length / 3, 0)
                         gl._instance?.('pPos', players, 0)
                 }
-                if (ts - st < 60) return
+                if (ts - st < 100) return
                 st = ts
-                send(JSON.stringify([cam.pos[0], cam.pos[1], cam.pos[2]]))
-        }
-        const resize = () => {
-                cam.update(gl.size[0] / gl.size[1])
-                users.iMVP.value = world.iMVP.value = [...cam.MVP]
+                send(JSON.stringify(cam.pos))
         }
         const mount = () => {
                 pg = gl.program
+                users.mvp.value = world.mvp.value = [...cam.MVP]
                 window.addEventListener('keydown', down)
                 window.addEventListener('keyup', up)
         }
@@ -126,25 +117,24 @@ const createGame = (username: string) => {
         }
         const onMessage = (e: WebSocketEventMap['message']) => {
                 const body = JSON.parse(e.data) as Record<string, string>
-                const vals = Object.entries(body)
-                        .filter(([k]) => k !== username)
-                        .map(([, v]) => JSON.parse(v) as number[])
-                const arr = new Float32Array(vals.length * 3)
-                vals.forEach((p, i) => arr.set(p, i * 3))
-                players = arr
+                players = new Float32Array(
+                        Object.entries(body)
+                                .filter(([k]) => k !== username)
+                                .flatMap(([, v]) => JSON.parse(v))
+                )
         }
         return {
                 bind: (_gl: GL, _send: (d: string) => void) => void ((gl = _gl), (send = _send)),
                 onMessage,
                 users: { ...users.gl },
-                world: { ...world.gl, render, resize, mount, clean, dragging },
+                world: { ...world.gl, render, mount, clean, dragging },
         }
 }
 const Game = ({ username }: { username: string }) => {
         const [game] = useState(() => createGame(username))
         const socket = usePartySocket({ party: 'v1', room: 'voxel-party', onMessage: game.onMessage })
         const gl = useGL(game.users, game.world)
-        game.bind(gl, (d: string) => socket.send(d))
+        game.bind(gl, (d) => socket.send(d))
         return <canvas ref={gl.ref} className="fixed top-0 left-0" />
 }
 const App = () => {
