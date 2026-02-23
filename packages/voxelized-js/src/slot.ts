@@ -12,27 +12,30 @@ const createSlot = (index = 0) => {
                 pending = undefined
                 isReady = false
         }
-        const assign = (c: WebGL2RenderingContext, pg: WebGLProgram, img: ImageBitmap) => {
+        const assign = (c: WebGL2RenderingContext, pg: WebGLProgram, img?: ImageBitmap) => {
                 if (!atlas) atlas = c.getUniformLocation(pg, `iAtlas${index}`)
                 if (!offset) offset = c.getUniformLocation(pg, `iOffset${index}`)
-                if (!atlas || !offset || !region) return false
-                if (!tex) {
-                        tex = c.createTexture()
-                        c.activeTexture(c.TEXTURE0 + index)
-                        c.bindTexture(c.TEXTURE_2D, tex)
-                        c.texParameteri(c.TEXTURE_2D, c.TEXTURE_MIN_FILTER, c.LINEAR)
-                        c.texParameteri(c.TEXTURE_2D, c.TEXTURE_MAG_FILTER, c.LINEAR)
-                        c.texParameteri(c.TEXTURE_2D, c.TEXTURE_WRAP_S, c.CLAMP_TO_EDGE)
-                        c.texParameteri(c.TEXTURE_2D, c.TEXTURE_WRAP_T, c.CLAMP_TO_EDGE)
-                } else {
-                        c.activeTexture(c.TEXTURE0 + index)
-                        c.bindTexture(c.TEXTURE_2D, tex)
+                if (!region) return false
+                if (!atlas && !offset) return false
+                if (offset) c.uniform3fv(offset, new Float32Array([region.x, region.y, region.z]))
+                if (atlas) {
+                        if (!img) return false
+                        if (!tex) {
+                                tex = c.createTexture()
+                                c.activeTexture(c.TEXTURE0 + index)
+                                c.bindTexture(c.TEXTURE_2D, tex)
+                                c.texParameteri(c.TEXTURE_2D, c.TEXTURE_MIN_FILTER, c.LINEAR)
+                                c.texParameteri(c.TEXTURE_2D, c.TEXTURE_MAG_FILTER, c.LINEAR)
+                                c.texParameteri(c.TEXTURE_2D, c.TEXTURE_WRAP_S, c.CLAMP_TO_EDGE)
+                                c.texParameteri(c.TEXTURE_2D, c.TEXTURE_WRAP_T, c.CLAMP_TO_EDGE)
+                        } else {
+                                c.activeTexture(c.TEXTURE0 + index)
+                                c.bindTexture(c.TEXTURE_2D, tex)
+                        }
+                        c.texImage2D(c.TEXTURE_2D, 0, c.RGBA, c.RGBA, c.UNSIGNED_BYTE, img)
+                        c.uniform1i(atlas, index)
                 }
-                c.texImage2D(c.TEXTURE_2D, 0, c.RGBA, c.RGBA, c.UNSIGNED_BYTE, img)
-                c.uniform1i(atlas, index)
-                c.uniform3fv(offset, new Float32Array([region.x, region.y, region.z]))
-                isReady = true
-                return true
+                return (isReady = true)
         }
         const upload = (c: WebGL2RenderingContext, pg: WebGLProgram, budget = 6) => {
                 if (!pending) return false

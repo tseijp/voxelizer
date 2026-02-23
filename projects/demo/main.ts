@@ -1,72 +1,49 @@
-// import { createGL } from '../../../../packages/core/src'
-// import { box } from 'glre/src/buffers'
-// import { attribute, float, Fn, If, instance, int, ivec2, ivec3, mat4, Scope, texelFetch, texture2D, uniform, varying, vec3, vec4 } from '../../../../packages/core/src/node'
 import { createGL } from 'glre/src'
 import { box } from 'glre/src/buffers'
-import { float, Fn, If, instance, int, ivec2, ivec3, mat4, Scope, texelFetch, texture2D, uniform, uv, varying, vec2, vec3, vec4 } from 'glre/src/node'
-import { createCamera, createMesh, createScene } from 'voxelized-js'
+import { float, Fn, If, instance, int, ivec2, ivec3, mat4, Scope, texelFetch, texture2D, uniform, varying, vec3, vec4 } from 'glre/src/node'
+import { createCamera, createMesh, createScene, range } from 'voxelized-js/src'
 import VoxelWorker from './worker?worker'
 
-// import type { Float, Int, IVec2, IVec3, Vec3 } from '../../../../packages/core/src/node'
-// import type { GL } from '../../../../packages/core/src'
-
 import type { Float, Int, IVec2, IVec3, Vec3 } from 'glre/src/node'
-import type { GL } from 'glre/src'
-
-const SLOT = 16
-const range = (n = 0) => [...Array(n).keys()]
 
 const iMVP = uniform<'mat4'>(mat4(), 'iMVP')
 const cube = box()
 const vertex = cube.vertex('vertex')
 const normal = cube.normal('normal')
-const iAtlas = range(SLOT).map((i) => uniform(texture2D(), `iAtlas${i}`))
-const iOffset = range(SLOT).map((i) => uniform(vec3(0, 0, 0), `iOffset${i}`))
+const iAtlas = range(16).map((i) => uniform(texture2D(), `iAtlas${i}`))
+const iOffset = range(16).map((i) => uniform(vec3(0, 0, 0), `iOffset${i}`))
 const scl = instance<'vec3'>(vec3(), 'scl')
 const pos = instance<'vec3'>(vec3(), 'pos')
 const aid = instance<'float'>(float(), 'aid')
 const vCenter = varying<'vec3'>(vec3(), 'vCenter')
-const mff0000ff = int(0xff0000ff).constant()
-const m0300f00f = int(0x0300f00f).constant()
-const m030c30c3 = int(0x030c30c3).constant()
-const m09249249 = int(0x09249249).constant()
-const m5555 = int(0x55555555).constant()
-const m3333 = int(0x33333333).constant()
-const m0f0f = int(0x0f0f0f0f).constant()
-const m00ff = int(0x00ff00ff).constant()
-const mffff = int(0x0000ffff).constant()
 const xyz2m = Fn(([xyz]: [IVec3]): Int => {
         const p = xyz.toVar()
         p.bitOrAssign(p.shiftLeft(int(16)))
-        p.bitAndAssign(ivec3(mff0000ff))
+        p.bitAndAssign(ivec3(int(0xff0000ff)))
         p.bitOrAssign(p.shiftLeft(int(8)))
-        p.bitAndAssign(ivec3(m0300f00f))
+        p.bitAndAssign(ivec3(int(0x0300f00f)))
         p.bitOrAssign(p.shiftLeft(int(4)))
-        p.bitAndAssign(ivec3(m030c30c3))
+        p.bitAndAssign(ivec3(int(0x030c30c3)))
         p.bitOrAssign(p.shiftLeft(int(2)))
-        p.bitAndAssign(ivec3(m09249249))
+        p.bitAndAssign(ivec3(int(0x09249249)))
         return p.x.bitOr(p.y.shiftLeft(int(1))).bitOr(p.z.shiftLeft(int(2)))
 })
 const m2uv = Fn(([morton]: [Int]): IVec2 => {
         const p = ivec2(morton, morton.shiftRight(int(1))).toVar()
-        p.bitAndAssign(ivec2(m5555))
+        p.bitAndAssign(ivec2(int(0x55555555)))
         p.bitOrAssign(p.shiftRight(int(1)))
-        p.bitAndAssign(ivec2(m3333))
+        p.bitAndAssign(ivec2(int(0x33333333)))
         p.bitOrAssign(p.shiftRight(int(2)))
-        p.bitAndAssign(ivec2(m0f0f))
+        p.bitAndAssign(ivec2(int(0x0f0f0f0f)))
         p.bitOrAssign(p.shiftRight(int(4)))
-        p.bitAndAssign(ivec2(m00ff))
+        p.bitAndAssign(ivec2(int(0x00ff00ff)))
         p.bitOrAssign(p.shiftRight(int(8)))
-        p.bitAndAssign(ivec2(mffff))
+        p.bitAndAssign(ivec2(int(0x0000ffff)))
         return p
-})
-const atlas = Fn(([p]: [IVec3]): IVec2 => {
-        const morton = xyz2m(p.clamp(int(0), int(255))).toVar()
-        return m2uv(morton)
 })
 const pick = Fn(([id, uvPix]: [Float, IVec2]) => {
         const t = vec4(0, 0, 0, 1).toVar('t')
-        range(SLOT).map((i) => {
+        range(16).map((i) => {
                 If(id.equal(i), () => {
                         t.assign(texelFetch(iAtlas[i], uvPix, int(0)))
                 })
@@ -78,7 +55,7 @@ const diffuse = Fn(([n]: [Vec3]) => {
 })
 const vert = Scope(() => {
         const off = vec3(0, 0, 0).toVar('off')
-        range(SLOT).forEach((i) => {
+        range(16).forEach((i) => {
                 If(aid.equal(i), () => {
                         off.assign(iOffset[i])
                 })
@@ -93,7 +70,7 @@ const frag = Scope(() => {
         const p = vCenter.toIVec3()
         const d = varying(diffuse(normal))
         const i = varying(aid)
-        const uv = atlas(p).toVar('uv')
+        const uv = m2uv(xyz2m(p)).toVar('uv')
         const rgb = pick(i, uv).rgb.mul(d).toVar('rgb')
         return vec4(rgb, 1)
 })
@@ -124,6 +101,6 @@ const gl = createGL({
                 scene.render(gl.context, gl.program)
                 gl.setInstanceCount(mesh.draw(gl.context, gl.program, gl.vao))
         },
-}) as GL
+})
 
 gl.mount()
