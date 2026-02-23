@@ -20,8 +20,6 @@
                 "vite-plugin-top-level-await": "1.6.0",
                 "voxelized-js": "*",
                 "voxelized-rs": "*",
-                "voxelizer-js": "*",
-                "voxelizer-rs": "*",
                 "wrangler": "^4.17.0"
         }
 }
