@@ -60,12 +60,12 @@ const createWorld = () => {
 }
 const createGame = (username: string) => {
         let gl: GL
-        let send = (_: string) => {}
         let ts = performance.now()
         let pt = ts
-        let st = 0
+        let st = ts
         let pg: WebGLProgram | null = null
         let players = new Float32Array(0)
+        let send = (_: string) => {}
         const users = createUsers()
         const world = createWorld()
         const mesh = createMesh()
