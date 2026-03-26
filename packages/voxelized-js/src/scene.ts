@@ -69,7 +69,7 @@ export const createScene = (mesh: Mesh, cam: Camera, worker: Worker, debug?: Deb
                 store.prune(active, i, j)
                 return regions
         }
-        const render = (gl: WebGL2RenderingContext, program: WebGLProgram) => {
+        const render = (..._: any[]) => {
                 const now = performance.now()
                 if (!isLoading && (isFirst || now - pt >= 100)) {
                         isFirst = false
@@ -80,7 +80,7 @@ export const createScene = (mesh: Mesh, cam: Camera, worker: Worker, debug?: Deb
                         pt = now
                 }
                 if (isLoading)
-                        if (slots.step(gl, program, 6)) {
+                        if (slots.step(6)) {
                                 mesh.commit()
                                 isLoading = false
                         }
