@@ -1,51 +1,28 @@
 import { range, timer } from './utils'
 import type { Region } from './region'
 
+export type SlotUpdate = { index: number; bitmap: ImageBitmap; offset: [number, number, number] }
+
 const createSlot = (index = 0) => {
-        let tex: WebGLTexture
-        let atlas: WebGLUniformLocation | null
-        let offset: WebGLUniformLocation | null
         let region: Region
         let isReady = false
         let pending: ImageBitmap | undefined
+        let _update: SlotUpdate | undefined
         const _reset = () => {
                 pending = undefined
                 isReady = false
+                _update = undefined
         }
-        const assign = (c: WebGL2RenderingContext, pg: WebGLProgram, img?: ImageBitmap) => {
-                if (!atlas) atlas = c.getUniformLocation(pg, `iAtlas${index}`)
-                if (!offset) offset = c.getUniformLocation(pg, `iOffset${index}`)
-                if (!region) return false
-                if (!atlas && !offset) return false
-                if (offset) c.uniform3fv(offset, new Float32Array([region.x, region.y, region.z]))
-                if (atlas) {
-                        if (!img) return false
-                        if (!tex) {
-                                tex = c.createTexture()
-                                c.activeTexture(c.TEXTURE0 + index)
-                                c.bindTexture(c.TEXTURE_2D, tex)
-                                c.texParameteri(c.TEXTURE_2D, c.TEXTURE_MIN_FILTER, c.LINEAR)
-                                c.texParameteri(c.TEXTURE_2D, c.TEXTURE_MAG_FILTER, c.LINEAR)
-                                c.texParameteri(c.TEXTURE_2D, c.TEXTURE_WRAP_S, c.CLAMP_TO_EDGE)
-                                c.texParameteri(c.TEXTURE_2D, c.TEXTURE_WRAP_T, c.CLAMP_TO_EDGE)
-                        } else {
-                                c.activeTexture(c.TEXTURE0 + index)
-                                c.bindTexture(c.TEXTURE_2D, tex)
-                        }
-                        c.texImage2D(c.TEXTURE_2D, 0, c.RGBA, c.RGBA, c.UNSIGNED_BYTE, img)
-                        c.uniform1i(atlas, index)
-                }
-                return (isReady = true)
-        }
-        const upload = (c: WebGL2RenderingContext, pg: WebGLProgram, budget = 6) => {
+        const upload = (budget = 6): boolean => {
                 if (!pending) return false
                 const checker = timer(budget)
-                const ok = assign(c, pg, pending)
+                if (!region) return false
+                if (!checker()) return false
+                _update = { index, bitmap: pending, offset: [region.x, region.y, region.z] }
                 pending = undefined
-                if (!ok || !checker()) return false
-                return true
+                return (isReady = true)
         }
-        const ready = (c: WebGL2RenderingContext, pg: WebGLProgram, budget = 6) => {
+        const ready = (budget = 6) => {
                 if (!region) return true
                 if (region.isError()) return true
                 if (isReady) return true
@@ -55,7 +32,12 @@ const createSlot = (index = 0) => {
                         return false
                 }
                 pending = img
-                return upload(c, pg, budget)
+                return upload(budget)
+        }
+        const consumeUpdate = () => {
+                const u = _update
+                _update = undefined
+                return u
         }
         const release = () => {
                 if (!region) return
@@ -63,19 +45,19 @@ const createSlot = (index = 0) => {
                 region = undefined as unknown as Region
                 _reset()
         }
-        const set = (r: Region, index = 0) => {
+        const set = (r: Region, idx = 0) => {
                 region = r
-                region.slot = index
+                region.slot = idx
                 _reset()
         }
-        return { ready, release, set, isReady: () => isReady, region: () => region }
+        return { ready, release, set, isReady: () => isReady, region: () => region, consumeUpdate }
 }
 
 export const createSlots = (size = 16) => {
         const owner = range(size).map(createSlot)
         let pending = [] as Region[]
         let keep = new Set<Region>()
-        const _assign = (c: WebGL2RenderingContext, pg: WebGLProgram, r: Region, budget = 6) => {
+        const _assign = (r: Region, budget = 6) => {
                 let index = r.slot
                 if (index < 0) {
                         index = owner.findIndex((slot) => !slot.region())
@@ -84,7 +66,7 @@ export const createSlots = (size = 16) => {
                 }
                 const slot = owner[index]
                 if (slot.region() !== r) return false
-                if (!slot.ready(c, pg, budget)) return false
+                if (!slot.ready(budget)) return false
                 return r.build(index)
         }
         const _release = (keep: Set<Region>) => {
@@ -98,7 +80,7 @@ export const createSlots = (size = 16) => {
                 pending = Array.from(keep)
                 pending.forEach((r) => r.reset())
         }
-        const step = (c: WebGL2RenderingContext, pg: WebGLProgram, budget = 6) => {
+        const step = (budget = 6) => {
                 const start = performance.now()
                 const inBudget = timer(budget)
                 let hasPending = false
@@ -110,10 +92,12 @@ export const createSlots = (size = 16) => {
                                 continue
                         }
                         const dt = Math.max(0, budget - (performance.now() - start))
-                        if (_assign(c, pg, r, dt)) continue
+                        if (_assign(r, dt)) continue
                         hasPending = true
                 }
                 return !hasPending
         }
-        return { begin, step }
+        const getUpdates = (): SlotUpdate[] =>
+                owner.map((s) => s.consumeUpdate()).filter((u): u is SlotUpdate => u !== undefined)
+        return { begin, step, getUpdates }
 }
