@@ -74,7 +74,6 @@ const frag = Scope(() => {
         const rgb = pick(i, uv).rgb.mul(d).toVar('rgb')
         return vec4(rgb, 1)
 })
-
 const worker = new VoxelWorker()
 const cam = createCamera({ X: 22912, Y: 800, Z: 20096, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: -1 })
 const mesh = createMesh()
@@ -82,11 +81,13 @@ const scene = createScene(mesh, cam, worker)
 
 let ts = performance.now()
 let pt = ts
+let lastVersion = -1
 
 const gl = createGL({
         precision: 'highp',
-        isWebGL: true,
+        isWebGL: false,
         isDepth: true,
+        // wireframe: true,
         triangleCount: 12,
         instanceCount: 1,
         vert,
@@ -97,9 +98,19 @@ const gl = createGL({
                 const dt = Math.min((ts - pt) / 1000, 0.03)
                 cam.tick(dt, scene.pick)
                 cam.update(gl.size[0] / gl.size[1])
-                iMVP.value = [...cam.MVP]
-                scene.render(gl.context, gl.program)
-                gl.setInstanceCount(mesh.draw(gl.context, gl.program, gl.vao))
+                gl._uniform?.('iMVP', [...cam.MVP])
+                scene.render()
+                scene.slots.getUpdates().forEach(({ index, bitmap, offset }) => {
+                        gl._uniform?.(`iOffset${index}`, offset)
+                        gl._texture?.(`iAtlas${index}`, bitmap)
+                })
+                const data = mesh.getData()
+                if (data.version === lastVersion) return
+                lastVersion = data.version
+                gl._instance?.('pos', data.pos)
+                gl._instance?.('scl', data.scl)
+                gl._instance?.('aid', data.aid)
+                gl.setInstanceCount(data.count)
         },
 })
 
