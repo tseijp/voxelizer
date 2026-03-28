@@ -10,7 +10,7 @@ const cube = box()
 const vertex = cube.vertex('vertex')
 const normal = cube.normal('normal')
 const iAtlas = range(16).map((i) => uniform(texture2D(), `iAtlas${i}`))
-const iOffset = uniformArray(vec4(), 'iOffset', 16)
+const iOffset = uniformArray(vec3(), 'iOffset', 16)
 const scl = instance<'vec3'>(vec3(), 'scl')
 const pos = instance<'vec3'>(vec3(), 'pos')
 const aid = instance<'float'>(float(), 'aid')
@@ -79,12 +79,11 @@ const scene = createScene(mesh, cam, worker)
 let ts = performance.now()
 let pt = ts
 let lastVersion = -1
-const iOffsetData = new Float32Array(16 * 4)
 
 const gl = createGL({
         precision: 'highp',
-        // isWebGL: false,
-        isWebGL: true,
+        isWebGL: false,
+        // isWebGL: true,
         isDepth: true,
         triangleCount: 12,
         instanceCount: 1,
@@ -100,12 +99,9 @@ const gl = createGL({
                 gl._uniform?.('iMVP', [...cam.MVP])
                 scene.render()
                 scene.slots.getUpdates().forEach(({ index, bitmap, offset }) => {
-                        iOffsetData[index * 4] = offset[0]
-                        iOffsetData[index * 4 + 1] = offset[1]
-                        iOffsetData[index * 4 + 2] = offset[2]
+                        gl._uniform?.('iOffset', [offset[0], offset[1], offset[2]], index)
                         gl._texture?.(`iAtlas${index}`, bitmap)
                 })
-                gl._uniform?.('iOffset', iOffsetData)
                 const data = mesh.getData()
                 if (data.version === lastVersion) return
                 lastVersion = data.version
