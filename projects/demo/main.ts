@@ -1,6 +1,6 @@
 import { createGL } from '../../../../packages/core/src'
 import { box } from '../../../../packages/core/src/buffers'
-import { float, Fn, If, instance, mat4, Scope, texelFetch, texture2D, uint, uniform, uniformArray, uvec2, uvec3, varying, vec3, vec4 } from '../../../../packages/core/src/node'
+import { float, Fn, int, If, instance, mat4, Scope, texelFetch, texture2D, uint, uniform, uniformArray, uvec2, uvec3, varying, vec3, vec4 } from '../../../../packages/core/src/node'
 import { createCamera, createMesh, createScene, range } from 'voxelized-js/src'
 import VoxelWorker from './worker?worker'
 import type { Float, UInt, UVec2, UVec3, Vec3 } from '../../../../packages/core/src/node'
@@ -9,7 +9,7 @@ const iMVP = uniform<'mat4'>(mat4(), 'iMVP')
 const cube = box()
 const vertex = cube.vertex('vertex')
 const normal = cube.normal('normal')
-const iAtlas = range(16).map((i) => uniform(texture2D(), `iAtlas${i}`))
+const iAtlas = uniformArray(texture2D(), 'iAtlas', 16)
 const iOffset = uniformArray(vec3(), 'iOffset', 16)
 const scl = instance<'vec3'>(vec3(), 'scl')
 const pos = instance<'vec3'>(vec3(), 'pos')
@@ -47,7 +47,7 @@ const pick = Fn(([id, uvPix]: [Float, UVec2]) => {
         const t = vec4(0, 0, 0, 1).toVar('t')
         range(16).map((i) => {
                 If(id.equal(i), () => {
-                        t.assign(texelFetch(iAtlas[i], uv, uint(0)))
+                        t.assign(texelFetch(iAtlas.element(int(i)), uv, uint(0)))
                 })
         })
         return t
@@ -82,8 +82,8 @@ let lastVersion = -1
 
 const gl = createGL({
         precision: 'highp',
-        isWebGL: false,
-        // isWebGL: true,
+        // isWebGL: false,
+        isWebGL: true,
         isDepth: true,
         triangleCount: 12,
         instanceCount: 1,
@@ -100,7 +100,7 @@ const gl = createGL({
                 scene.render()
                 scene.slots.getUpdates().forEach(({ index, bitmap, offset }) => {
                         gl._uniform?.('iOffset', [offset[0], offset[1], offset[2]], index)
-                        gl._texture?.(`iAtlas${index}`, bitmap)
+                        gl._texture?.('iAtlas', bitmap, index)
                 })
                 const data = mesh.getData()
                 if (data.version === lastVersion) return
