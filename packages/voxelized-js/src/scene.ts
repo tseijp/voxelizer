@@ -57,7 +57,6 @@ const createVis = (cam: Camera, store: any, debug?: Debug) => {
                 })
                 store.prune(active, i, j)
         }
-<<<<<<< HEAD
         return { vis, regions: () => regions }
 }
 
@@ -103,9 +102,6 @@ export const createScene = (cam: Camera, worker: Worker, debug?: Debug) => {
         let pt = performance.now()
         let _v = -1
         const render = () => {
-=======
-        const render = (..._: any[]) => {
->>>>>>> 0e3b67fec4916a6611f18637e6c51a5bdf10f4fa
                 const now = performance.now()
                 if (!isLoading && (isFirst || now - pt >= 100)) {
                         isFirst = false
