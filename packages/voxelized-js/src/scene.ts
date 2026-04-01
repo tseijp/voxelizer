@@ -69,7 +69,7 @@ export const createScene = (mesh: Mesh, cam: Camera, worker: Worker, debug?: Deb
                 store.prune(active, i, j)
                 return regions
         }
-        const render = (..._: any[]) => {
+        const render = () => {
                 const now = performance.now()
                 if (!isLoading && (isFirst || now - pt >= 100)) {
                         isFirst = false

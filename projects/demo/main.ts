@@ -1,7 +1,7 @@
 import { createGL } from '../../../../packages/core/src'
 import { box } from '../../../../packages/core/src/buffers'
-import { float, Fn, int, If, instance, mat4, Scope, texelFetch, texture2D, uint, uniform, uniformArray, uvec2, uvec3, varying, vec3, vec4 } from '../../../../packages/core/src/node'
-import { createCamera, createMesh, createScene, range } from 'voxelized-js/src'
+import { float, Fn, instance, mat4, Scope, texelFetch, texture2D, uint, uniform, uniformArray, uvec2, uvec3, varying, vec3, vec4 } from '../../../../packages/core/src/node'
+import { createCamera, createMesh, createScene } from 'voxelized-js/src'
 import VoxelWorker from './worker?worker'
 import type { Float, UInt, UVec2, UVec3, Vec3 } from '../../../../packages/core/src/node'
 
@@ -43,14 +43,7 @@ const m2uv = Fn(([morton]: [UInt]): UVec2 => {
         return p
 })
 const pick = Fn(([id, uvPix]: [Float, UVec2]) => {
-        const uv = uvPix.toIVec2().toVar()
-        const t = vec4(0, 0, 0, 1).toVar('t')
-        range(16).map((i) => {
-                If(id.equal(i), () => {
-                        t.assign(texelFetch(iAtlas.element(int(i)), uv, uint(0)))
-                })
-        })
-        return t
+        return texelFetch(iAtlas.element(id.toInt()), uvPix.toIVec2(), uint(0))
 })
 const diffuse = Fn(([n]: [Vec3]) => {
         return vec3(-0.33, 0.77, 0.55).normalize().dot(n).mul(0.5).add(0.5)
@@ -96,12 +89,14 @@ const gl = createGL({
                 const dt = Math.min((ts - pt) / 1000, 0.03)
                 cam.tick(dt, scene.pick)
                 cam.update(gl.size[0] / gl.size[1])
-                gl._uniform?.('iMVP', [...cam.MVP])
                 scene.render()
-                scene.slots.getUpdates().forEach(({ index, bitmap, offset }) => {
+                const updates = scene.slots.getUpdates()
+                updates.forEach(({ index, bitmap, offset }) => {
                         gl._uniform?.('iOffset', [offset[0], offset[1], offset[2]], index)
-                        gl._texture?.('iAtlas', bitmap, index)
+                        gl._texture?.('iAtlas', bitmap, index, { width: 4096, height: 4096, depth: 16 })
                 })
+                // if (!isInit) return
+                // gl._uniform?.('iMVP', [...cam.MVP])
                 const data = mesh.getData()
                 if (data.version === lastVersion) return
                 lastVersion = data.version
@@ -111,5 +106,13 @@ const gl = createGL({
                 gl.setInstanceCount(data.count)
         },
 })
+
+// for webgpu binding layout
+// const empty = new OffscreenCanvas(4096, 4096) as any
+// empty.getContext('2d')
+// range(16).forEach((i) => {
+//         gl.uniform('iOffset', [0, 0, 0], i)
+//         gl.texture('iAtlas', empty, i)
+// })
 
 gl.mount()
