@@ -1,7 +1,7 @@
 import { createGL } from '../../../../packages/core/src'
 import { box } from '../../../../packages/core/src/buffers'
 import { float, Fn, instance, mat4, Scope, texelFetch, texture2D, uint, uniform, uniformArray, uvec2, uvec3, varying, vec3, vec4 } from '../../../../packages/core/src/node'
-import { createCamera, createScene } from 'voxelized-js/src'
+import { createCamera, createScene, range } from 'voxelized-js/src'
 import VoxelWorker from './worker?worker'
 import type { Float, UInt, UVec2, UVec3, Vec3 } from '../../../../packages/core/src/node'
 
@@ -89,24 +89,25 @@ const gl = createGL({
                 cam.update(gl.size[0] / gl.size[1])
                 scene.render()
                 scene.updates(({ at, atlas, offset }) => {
-                        gl._uniform?.('iOffset', offset, at)
-                        gl._texture?.('iAtlas', atlas, at, { width: 4096, height: 4096, depth: 16 })
+                        gl._uniform('iOffset', offset, at)
+                        gl._texture('iAtlas', atlas, at)
                 })
                 gl._uniform?.('iMVP', [...cam.MVP])
                 if (!scene.updated) return
-                gl._instance?.('pos', scene.pos)
-                gl._instance?.('scl', scene.scl)
-                gl._instance?.('aid', scene.aid)
+                gl._instance('pos', scene.pos)
+                gl._instance('scl', scene.scl)
+                gl._instance('aid', scene.aid)
                 gl.setInstanceCount(scene.count)
         },
 })
 
 // for webgpu binding layout
-// const empty = new OffscreenCanvas(4096, 4096) as any
-// empty.getContext('2d')
-// range(16).forEach((i) => {
-//         gl.uniform('iOffset', [0, 0, 0], i)
-//         gl.texture('iAtlas', empty, i)
-// })
+const empty = new OffscreenCanvas(4096, 4096)
+empty.getContext('2d')
+
+range(16).map((i) => {
+        gl.uniform('iOffset', [0, 0, 0], i)
+        gl.texture('iAtlas', empty, i)
+})
 
 gl.mount()
