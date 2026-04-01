@@ -73,8 +73,8 @@ let pt = ts
 
 const gl = createGL({
         precision: 'highp',
-        // isWebGL: false,
-        isWebGL: true,
+        isWebGL: false,
+        // isWebGL: true,
         isDepth: true,
         triangleCount: 12,
         instanceCount: 1,
