@@ -1,7 +1,7 @@
 import { createGL } from '../../../../packages/core/src'
 import { box } from '../../../../packages/core/src/buffers'
 import { float, Fn, instance, mat4, Scope, texelFetch, texture2D, uint, uniform, uniformArray, uvec2, uvec3, varying, vec3, vec4 } from '../../../../packages/core/src/node'
-import { createCamera, createMesh, createScene } from 'voxelized-js/src'
+import { createCamera, createScene } from 'voxelized-js/src'
 import VoxelWorker from './worker?worker'
 import type { Float, UInt, UVec2, UVec3, Vec3 } from '../../../../packages/core/src/node'
 
@@ -66,12 +66,10 @@ const frag = Scope(() => {
 })
 const worker = new VoxelWorker()
 const cam = createCamera({ X: 22912, Y: 800, Z: 20096, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: -1 })
-const mesh = createMesh()
-const scene = createScene(mesh, cam, worker)
+const scene = createScene(cam, worker)
 
 let ts = performance.now()
 let pt = ts
-let lastVersion = -1
 
 const gl = createGL({
         precision: 'highp',
@@ -90,19 +88,16 @@ const gl = createGL({
                 cam.tick(dt, scene.pick)
                 cam.update(gl.size[0] / gl.size[1])
                 scene.render()
-                const updates = scene.slots.getUpdates()
-                updates.forEach(({ index, bitmap, offset }) => {
-                        gl._uniform?.('iOffset', [offset[0], offset[1], offset[2]], index)
-                        gl._texture?.('iAtlas', bitmap, index, { width: 4096, height: 4096, depth: 16 })
+                scene.updates(({ at, atlas, offset }) => {
+                        gl._uniform?.('iOffset', offset, at)
+                        gl._texture?.('iAtlas', atlas, at, { width: 4096, height: 4096, depth: 16 })
                 })
                 gl._uniform?.('iMVP', [...cam.MVP])
-                const data = mesh.getData()
-                if (data.version === lastVersion) return
-                lastVersion = data.version
-                gl._instance?.('pos', data.pos)
-                gl._instance?.('scl', data.scl)
-                gl._instance?.('aid', data.aid)
-                gl.setInstanceCount(data.count)
+                if (!scene.updated) return
+                gl._instance?.('pos', scene.pos)
+                gl._instance?.('scl', scene.scl)
+                gl._instance?.('aid', scene.aid)
+                gl.setInstanceCount(scene.count)
         },
 })
 

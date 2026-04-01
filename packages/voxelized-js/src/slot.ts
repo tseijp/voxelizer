@@ -1,7 +1,7 @@
 import { range, timer } from './utils'
 import type { Region } from './region'
 
-export type SlotUpdate = { index: number; bitmap: ImageBitmap; offset: [number, number, number] }
+export type SlotUpdate = { at: number; atlas: ImageBitmap; offset: [number, number, number] }
 
 const createSlot = (index = 0) => {
         let region: Region
@@ -18,7 +18,7 @@ const createSlot = (index = 0) => {
                 const checker = timer(budget)
                 if (!region) return false
                 if (!checker()) return false
-                _update = { index, bitmap: pending, offset: [region.x, region.y, region.z] }
+                _update = { at: index, atlas: pending, offset: [region.x, region.y, region.z] }
                 pending = undefined
                 return (isReady = true)
         }
@@ -97,6 +97,5 @@ export const createSlots = (size = 16) => {
                 }
                 return !hasPending
         }
-        const getUpdates = (): SlotUpdate[] => owner.map((s) => s.consumeUpdate()).filter((u): u is SlotUpdate => u !== undefined)
-        return { begin, step, getUpdates }
+        return { begin, step, updates: (): SlotUpdate[] => owner.map((s) => s.consumeUpdate()).filter((u): u is SlotUpdate => u !== undefined) }
 }

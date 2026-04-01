@@ -12,33 +12,33 @@ it performs Atlas image fetching, decoding, and mesh generation without blocking
 ┌────────────────────────────────────────────────────────────┐
 │                 voxelized-js Architecture                  │
 ├────────────────────────────────────────────────────────────┤
-│         ┌─────────────┐ ┌─────────────┐                    │
-│         │   Camera    │ │    Mesh     │──▶ WebGL Draw      │
-│         │  (viewport) │ │  (vertices) │                    │
-│         └──────┬──────┘ └──────┬──────┘                    │
-│                └───────┬───────┘                           │
-│                        ▼                                   │
-│                 ┌──────────────┐                           │
-│                 │    Scene     │                           │
-│                 │ (coordinator)│                           │
-│                 └──────┬───────┘                           │
-│                ┌───────┴───────┐                           │
-│                ▼               ▼                           │
-│         ┌─────────────┐ ┌──────────────┐                   │
-│         │    Store    │ │    Slots     │──▶ Texture Update │
-│         │(Region ctrl)│ │(Texture ctrl)│                   │
-│         └──────┬──────┘ └──────────────┘                   │
-│        ┌───────┴───────┐                                   │
-│        ▼               ▼                                   │
-│ ┌─────────────┐ ┌─────────────┐                            │
-│ │    Queue    │ │   Worker    │──▶ CDN/R2 Storage          │
-│ │ (Task ctrl) │ │(off-thread) │    (Atlas delivery)        │
-│ └──────┬──────┘ └─────────────┘                            │
-│        ▼                                                   │
-│ ┌─────────────┐                                            │
-│ │   Region    │                                            │
-│ │ (unit area) │                                            │
-│ └─────────────┘                                            │
+│         ┌─────────────┐                                    │
+│         │   Camera    │                                    │
+│         │  (viewport) │                                    │
+│         └──────┬──────┘                                    │
+│                ▼                                           │
+│  ┌─────────────────────────────────────────┐               │
+│  │              Scene                      │               │
+│  │  ┌──────────┐ ┌──────┐ ┌──────────┐    │               │
+│  │  │   Vis    │ │ Mesh │ │  Slots   │    │               │
+│  │  │(culling) │ │(vtx) │ │(tex ctrl)│    │               │
+│  │  └──────────┘ └──────┘ └──────────┘    │               │
+│  │  ┌──────────┐                          │               │
+│  │  │  Store   │                          │               │
+│  │  │(Rgn ctrl)│                          │               │
+│  │  └────┬─────┘                          │               │
+│  └───────┼────────────────────────────────┘               │
+│     ┌────┴────┐                                           │
+│     ▼         ▼                                           │
+│ ┌────────┐ ┌─────────┐                                    │
+│ │ Queue  │ │ Worker  │──▶ CDN/R2 Storage                  │
+│ │(Task)  │ │(off-thr)│    (Atlas delivery)                │
+│ └────┬───┘ └─────────┘                                    │
+│      ▼                                                    │
+│ ┌─────────┐                                               │
+│ │ Region  │                                               │
+│ │(unit)   │                                               │
+│ └─────────┘                                               │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -173,25 +173,23 @@ Returns to 'none' via dispose when moving away from camera.
 
 ## Slot Management: Texture Unit Allocation and Reuse
 
-Slot binds WebGL TextureUnits to Regions.
-It has SLOT slots (default 16) and assigns them sequentially to visible Regions.
+Slot manages the mapping between Regions and texture slots (default 16).
+It assigns slots sequentially to visible Regions and produces SlotUpdate objects
+that the consumer (glre, THREE.js, etc.) uses to perform actual texture uploads.
 Slots from Regions outside camera are released and reassigned to new Regions.
 
 ```ts
 ┌────────────────────────────────────────────────────────────────────────┐
 │                       Slot Allocation Structure                        │
 ├────────────────────────────────────────────────────────────────────────┤
-│ Shader Uniforms              Slot Array                 Regions        │
-│ ───────────────              ──────────                 ────────       │
-│ iAtlas0  ─────────────────▶  slot[0] ◀───────────────▶  Region(i,j)    │
-│ iOffset0                        │                                      │
-│                              tex: WebGLTexture                         │
-│ iAtlas1  ─────────────────▶  slot[1] ◀───────────────▶  Region(i,j)    │
-│ iOffset1                        │                                      │
-│ ...                            ...                                     │
+│ Slot Array                         Regions                             │
+│ ──────────                         ────────                           │
+│ slot[0]  ◀───────────────────────▶  Region(i,j)                       │
+│ slot[1]  ◀───────────────────────▶  Region(i,j)                       │
+│ ...                                                                    │
+│ slot[15] ◀───────────────────────▶  Region(i,j)                       │
 │                                                                        │
-│ iAtlas15 ─────────────────▶  slot[15] ◀──────────────▶  Region(i,j)    │
-│ iOffset15                                                              │
+│ SlotUpdate Output: { at: number, atlas: ImageBitmap, offset: vec3 }    │
 │                                                                        │
 │ Processing Flow (step function):                                       │
 │ ┌────────────────────────────────────────────────────────────────────┐ │
@@ -199,7 +197,7 @@ Slots from Regions outside camera are released and reassigned to new Regions.
 │ │ 2. Skip fetching Regions (hasPending = true)                       │ │
 │ │ 3. Skip error Regions (if isError() is true)                       │ │
 │ │ 4. Find empty slot and assign Region                               │ │
-│ │ 5. Upload bitmap via texImage2D                                    │ │
+│ │ 5. Produce SlotUpdate { at, atlas, offset } for consumer           │ │
 │ │ 6. Combine vertex data with mesh.merge                             │ │
 │ │ 7. On all Regions complete: mesh.commit → reflect in render        │ │
 │ └────────────────────────────────────────────────────────────────────┘ │
@@ -366,22 +364,25 @@ When there are 0 listeners, no measurements are taken, ensuring no impact on pro
 
 ```ts
 const cam = createCamera({ X: 0, Y: 100, Z: 0 })
-const mesh = createMesh()
-const scene = createScene(mesh, cam, WORKER_URL)
+const scene = createScene(cam, worker, debug?)
 
-const render = (gl, program) => {
+const render = () => {
         cam.update(aspect)
-        scene.render(gl, program)
-        gl.instanceCount = mesh.draw(gl, program)
+        scene.render()
+        scene.updates(({ at, atlas, offset }) => {
+                // consumer handles texture upload (glre, THREE.js, etc.)
+        })
+        if (scene.updated) {
+                // scene.pos, scene.scl, scene.aid, scene.count
+        }
 }
 ```
 
-| Factory Function | Creates | Required Args                   | Notes                    |
-| ---------------- | ------- | ------------------------------- | ------------------------ |
-| createCamera     | Camera  | position/angle params           | 1 per canvas             |
-| createMesh       | Mesh    | none                            | 1 per canvas             |
-| createScene      | Scene   | Mesh, Camera, workerUrl, Debug? | 1 per canvas             |
-| createDebug      | Debug   | none                            | optional, for monitoring |
+| Factory Function | Creates | Required Args              | Notes                    |
+| ---------------- | ------- | -------------------------- | ------------------------ |
+| createCamera     | Camera  | position/angle params      | 1 per canvas             |
+| createScene      | Scene   | Camera, Worker, Debug?     | 1 per canvas             |
+| createDebug      | Debug   | none                       | optional, for monitoring |
 
 ## Coordinate Transformation Utility Reference
 
