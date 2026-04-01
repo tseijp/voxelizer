@@ -8,6 +8,7 @@ export const SCOPE = { x0: 116326, x1: 116508, y0: 51545, y1: 51694 } // all reg
 export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
 export const SLOT = 16
 export const REGION = 256
+export const ATLAS = REGION * Math.sqrt(REGION) | 0
 export const TOTAL = REGION * REGION * REGION
 export const PREBUILD = 4
 export const PREFETCH = 4
@@ -29,12 +30,10 @@ export const localOf = (wx: number, wy: number, wz: number, ri: number, rj: numb
 }
 
 export const loadBitmap = async (url = '', signal?: AbortSignal) => {
-        // if (url === 'https://r2.glre.dev/atlas/v1/17_116410_51623.webp') url = 'IGNORE'
         const res = await fetch(url, { signal, mode: 'cors' }) // @MEMO DO NOT SET: `cache: 'reload'`
         const blob = await res.blob()
         if (blob.size <= 0) throw new Error('empty-atlas')
-        const bitmap = await createImageBitmap(blob)
-        return bitmap
+        return await createImageBitmap(blob, 0, 0, ATLAS, ATLAS)
 }
 
 export const loadContext = (bitmap: ImageBitmap) => {

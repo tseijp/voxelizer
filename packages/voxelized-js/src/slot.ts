@@ -97,7 +97,6 @@ export const createSlots = (size = 16) => {
                 }
                 return !hasPending
         }
-        const getUpdates = (): SlotUpdate[] =>
-                owner.map((s) => s.consumeUpdate()).filter((u): u is SlotUpdate => u !== undefined)
+        const getUpdates = (): SlotUpdate[] => owner.map((s) => s.consumeUpdate()).filter((u): u is SlotUpdate => u !== undefined)
         return { begin, step, getUpdates }
 }

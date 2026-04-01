@@ -95,8 +95,7 @@ const gl = createGL({
                         gl._uniform?.('iOffset', [offset[0], offset[1], offset[2]], index)
                         gl._texture?.('iAtlas', bitmap, index, { width: 4096, height: 4096, depth: 16 })
                 })
-                // if (!isInit) return
-                // gl._uniform?.('iMVP', [...cam.MVP])
+                gl._uniform?.('iMVP', [...cam.MVP])
                 const data = mesh.getData()
                 if (data.version === lastVersion) return
                 lastVersion = data.version
