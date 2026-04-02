@@ -1,10 +1,10 @@
 import { createSlots } from './slot'
-import type { SlotUpdate } from './slot'
 import { createStore } from './store'
 import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId } from './utils'
 import type { Camera } from './camera'
 import type { Debug } from './debug'
 import type { Region } from './region'
+import type { SlotUpdate } from './slot'
 
 const RANGE = 8
 
@@ -59,39 +59,79 @@ const createVis = (cam: Camera, store: any, debug?: Debug) => {
         }
         return { vis, regions: () => regions }
 }
-
 const createMesh = () => {
         let count = 1
-        let pos = [0, 0, 0] as number[]
-        let scl = [1, 1, 1] as number[]
-        let aid = [0] as number[]
+        let cap = 1
+        let pos = new Float32Array([0, 0, 0])
+        let scl = new Float32Array([1, 1, 1])
+        let aid = new Float32Array([0])
         let _count = 0
-        let _pos = [] as number[]
-        let _scl = [] as number[]
-        let _aid = [] as number[]
-        let version = 0
-        const merge = (built: { pos: ArrayLike<number>; scl: ArrayLike<number>; cnt: number }, index = 0, ox = 0, oy = 0, oz = 0) => {
-                for (let i = 0; i < built.cnt; i++) {
-                        _pos.push(built.pos[i * 3] + ox, built.pos[i * 3 + 1] + oy, built.pos[i * 3 + 2] + oz)
-                        _scl.push(built.scl[i * 3], built.scl[i * 3 + 1], built.scl[i * 3 + 2])
-                        _aid.push(index)
+        let _cap = 0
+        let _pos = new Float32Array(0)
+        let _scl = new Float32Array(0)
+        let _aid = new Float32Array(0)
+        let overflow = false
+        const ensure = (n: number) => {
+                if (n <= _cap) return
+                const c = Math.max(n, _cap * 2) || n
+                const p = new Float32Array(c * 3)
+                const s = new Float32Array(c * 3)
+                const a = new Float32Array(c)
+                if (_count) {
+                        p.set(_pos.subarray(0, _count * 3))
+                        s.set(_scl.subarray(0, _count * 3))
+                        a.set(_aid.subarray(0, _count))
                 }
+                _pos = p
+                _scl = s
+                _aid = a
+                _cap = c
+        }
+        const merge = (built: { pos: ArrayLike<number>; scl: ArrayLike<number>; cnt: number }, index = 0, ox = 0, oy = 0, oz = 0) => {
+                ensure(_count + built.cnt)
+                const off = _count * 3
+                // prettier-ignore
+                for (let i = 0; i < built.cnt; i++) {
+                        _pos[off + i * 3    ] = built.pos[i * 3    ] + ox
+                        _pos[off + i * 3 + 1] = built.pos[i * 3 + 1] + oy
+                        _pos[off + i * 3 + 2] = built.pos[i * 3 + 2] + oz
+                        _scl[off + i * 3    ] = built.scl[i * 3    ]
+                        _scl[off + i * 3 + 1] = built.scl[i * 3 + 1]
+                        _scl[off + i * 3 + 2] = built.scl[i * 3 + 2]
+                }
+                _aid.fill(index, _count, _count + built.cnt)
                 _count += built.cnt
         }
         const reset = () => {
-                _pos.length = _scl.length = _aid.length = _count = 0
+                _count = 0
         }
         const commit = () => {
                 if (!_count) return false
-                ;[pos, scl, aid, count, _pos, _scl, _aid, _count] = [_pos, _scl, _aid, _count, pos, scl, aid, count]
+                overflow = _count > cap
+                if (overflow) {
+                        cap = Math.max(_count, cap * 2) || _count
+                        pos = new Float32Array(cap * 3)
+                        scl = new Float32Array(cap * 3)
+                        aid = new Float32Array(cap)
+                }
+                pos.set(_pos.subarray(0, _count * 3))
+                scl.set(_scl.subarray(0, _count * 3))
+                aid.set(_aid.subarray(0, _count))
+                count = _count
                 reset()
-                version++
                 return true
         }
-        const getData = () => ({ pos, scl, aid, count, version })
-        return { merge, reset, commit, count: () => count, getData }
+        return {
+                merge,
+                reset,
+                commit,
+                pos: () => pos,
+                scl: () => scl,
+                aid: () => aid,
+                count: () => count,
+                overflow: () => overflow,
+        }
 }
-
 export const createScene = (cam: Camera, worker: Worker, debug?: Debug) => {
         const mesh = createMesh()
         const store = createStore(mesh, worker, debug)
@@ -100,7 +140,7 @@ export const createScene = (cam: Camera, worker: Worker, debug?: Debug) => {
         let isLoading = false
         let isFirst = true
         let pt = performance.now()
-        let _v = -1
+        let updated = false
         const render = () => {
                 const now = performance.now()
                 if (!isLoading && (isFirst || now - pt >= 100)) {
@@ -111,9 +151,10 @@ export const createScene = (cam: Camera, worker: Worker, debug?: Debug) => {
                         isLoading = true
                         pt = now
                 }
+                updated = false
                 if (isLoading)
                         if (slots.step(6)) {
-                                mesh.commit()
+                                updated = mesh.commit()
                                 isLoading = false
                         }
         }
@@ -128,24 +169,12 @@ export const createScene = (cam: Camera, worker: Worker, debug?: Debug) => {
                 render,
                 pick,
                 updates: (fn: (u: SlotUpdate) => void) => slots.updates().forEach(fn),
-                get updated() {
-                        const v = mesh.getData().version
-                        if (v === _v) return false
-                        _v = v
-                        return true
-                },
-                get pos() {
-                        return mesh.getData().pos
-                },
-                get scl() {
-                        return mesh.getData().scl
-                },
-                get aid() {
-                        return mesh.getData().aid
-                },
-                get count() {
-                        return mesh.getData().count
-                },
+                updated: () => updated,
+                pos: mesh.pos,
+                scl: mesh.scl,
+                aid: mesh.aid,
+                count: mesh.count,
+                overflow: mesh.overflow,
         }
 }
 

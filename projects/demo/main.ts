@@ -94,10 +94,10 @@ const gl = createGL({
                 })
                 gl._uniform?.('iMVP', [...cam.MVP])
                 if (!scene.updated) return
-                gl._instance('pos', scene.pos)
-                gl._instance('scl', scene.scl)
-                gl._instance('aid', scene.aid)
-                gl.setInstanceCount(scene.count)
+                gl._instance('pos', scene.pos())
+                gl._instance('scl', scene.scl())
+                gl._instance('aid', scene.aid())
+                gl.setInstanceCount(scene.count())
         },
 })
 
