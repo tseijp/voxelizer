@@ -373,7 +373,7 @@ The discrete nature of voxel data makes it ideal for interactive applications wh
   <tr>
     <td>
       <h4>hilbert curve</h4>
-      <hr>
+      <hr />
       demo:
       <a href="https://glre.dev/space/hilbert2d">hilbert2d</a>
       /
@@ -387,7 +387,7 @@ The discrete nature of voxel data makes it ideal for interactive applications wh
     </td>
     <td>
       <h4>morton curve</h4>
-      <hr>
+      <hr />
       demo:
       <a href="https://glre.dev/space/morton2d">morton2d</a>
       /
@@ -401,7 +401,7 @@ The discrete nature of voxel data makes it ideal for interactive applications wh
     </td>
     <td>
       <h4>original curve</h4>
-      <hr>
+      <hr />
       demo:
       <a href="https://glre.dev/space/original2d">original2d</a>
       /
