@@ -1,8 +1,7 @@
 import { inRegion, local, offOf, regionId, SCOPE } from './utils'
 import type { Debug } from './debug'
-import type { Mesh } from './mesh'
 import type { Queues, QueueTask } from './queue'
-import type { WorkerMode, WorkerResult } from './scene'
+import type { Mesh, WorkerMode, WorkerResult } from './scene'
 import type { WorkerBridge } from './store'
 
 const MAX_RETRY = 3

@@ -1,6 +1,5 @@
 export * from './camera'
 export * from './debug'
-export * from './mesh'
 export * from './queue'
 export * from './region'
 export * from './scene'

@@ -2,7 +2,7 @@ import { createRegion } from './region'
 import { createQueues } from './queue'
 import { PREPURGE, regionId } from './utils'
 import type { Debug } from './debug'
-import type { Mesh } from './mesh'
+import type { Mesh } from './scene'
 import type { Region } from './region'
 import type { WorkerResponse, WorkerResult } from './scene'
 
