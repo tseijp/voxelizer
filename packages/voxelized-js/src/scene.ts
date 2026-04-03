@@ -132,15 +132,19 @@ const createMesh = () => {
                 overflow: () => overflow,
         }
 }
-export const createScene = (cam: Camera, worker: Worker, debug?: Debug) => {
+export const createScene = (cam: Camera, worker: Worker, debug?: Debug, onReady?: () => void) => {
         const mesh = createMesh()
         const store = createStore(mesh, worker, debug)
         const slots = createSlots(SLOT)
         const { vis, regions } = createVis(cam, store, debug)
         let isLoading = false
         let isFirst = true
+        let isReady = false
         let pt = performance.now()
         let updated = false
+        const tick = (dt: number) => {
+                if (isReady) cam.tick(dt, pick)
+        }
         const render = () => {
                 const now = performance.now()
                 if (!isLoading && (isFirst || now - pt >= 100)) {
@@ -155,6 +159,10 @@ export const createScene = (cam: Camera, worker: Worker, debug?: Debug) => {
                 if (isLoading)
                         if (slots.step(6)) {
                                 updated = mesh.commit()
+                                if (!isReady && updated) {
+                                        isReady = true
+                                        onReady?.()
+                                }
                                 isLoading = false
                         }
         }
@@ -166,8 +174,10 @@ export const createScene = (cam: Camera, worker: Worker, debug?: Debug) => {
                 return r.pick(...localOf(wx, wy, wz, ri, rj))
         }
         return {
+                tick,
                 render,
                 pick,
+                map: store.map,
                 updates: (fn: (u: SlotUpdate) => void) => slots.updates().forEach(fn),
                 updated: () => updated,
                 pos: mesh.pos,

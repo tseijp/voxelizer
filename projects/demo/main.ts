@@ -1,6 +1,6 @@
 import { createGL } from '../../../../packages/core/src'
 import { box } from '../../../../packages/core/src/buffers'
-import { float, Fn, instance, mat4, Scope, texelFetch, texture2D, uint, uniform, uniformArray, uvec2, uvec3, varying, vec3, vec4 } from '../../../../packages/core/src/node'
+import { float, Fn, fragDepth, instance, mat4, Scope, texelFetch, texture2D, uint, uniform, uniformArray, uvec2, uvec3, varying, vec3, vec4 } from '../../../../packages/core/src/node'
 import { createCamera, createScene, range } from 'voxelized-js/src'
 import VoxelWorker from './worker?worker'
 import type { Float, UInt, UVec2, UVec3, Vec3 } from '../../../../packages/core/src/node'
@@ -17,6 +17,7 @@ const aid = instance<'float'>(float(), 'aid')
 const vCenter = varying<'vec3'>(vec3(), 'vCenter')
 const vDiffuse = varying<'float'>(float(), 'vDiffuse')
 const vAid = varying<'float'>(float(), 'vAid')
+const vLogW = varying<'float'>(float(), 'vLogW')
 const xyz2m = Fn(([xyz]: [UVec3]): UInt => {
         const p = xyz.toVar()
         p.bitOrAssign(p.shiftLeft(uvec3(uint(16))))
@@ -42,6 +43,7 @@ const m2uv = Fn(([morton]: [UInt]): UVec2 => {
         p.bitAndAssign(uvec2(uint(0x0000ffff)))
         return p
 })
+const FC = float(2.0).div(float(4001.0).log2()).constant()
 const pick = Fn(([id, uvPix]: [Float, UVec2]) => {
         return texelFetch(iAtlas.element(id.toInt()), uvPix.toIVec2(), uint(0))
 })
@@ -53,15 +55,18 @@ const vert = Scope(() => {
         const local = vertex.mul(scl).add(pos)
         const world = off.add(local)
         const center = local.sub(normal.sign().mul(0.5)).floor()
+        const position = iMVP.mul(vec4(world, 1)).toVar('clip')
         vCenter.assign(center)
         vDiffuse.assign(diffuse(normal))
         vAid.assign(aid)
-        return iMVP.mul(vec4(world, 1))
+        vLogW.assign(float(1.0).add(position.w))
+        return position
 })
 const frag = Scope(() => {
         const p = vCenter.toUVec3()
         const uv = m2uv(xyz2m(p)).toVar('uv')
         const rgb = pick(vAid, uv).rgb.mul(vDiffuse).toVar('rgb')
+        fragDepth.assign(vLogW.log2().mul(FC).mul(0.5))
         return vec4(rgb, 1)
 })
 const worker = new VoxelWorker()
