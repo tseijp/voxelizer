@@ -1,6 +1,7 @@
 import { createSlots } from './slot'
 import { createStore } from './store'
 import { createCamera } from './camera'
+import type { Camera, CameraConfig } from './camera'
 import { createMesh } from './mesh'
 import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId, M, V } from './utils'
 import type { Debug } from './debug'
@@ -61,14 +62,12 @@ const createVis = (mvp: number[], pos: number[], store: any, debug?: Debug) => {
         return { vis, regions: () => regions }
 }
 
-export const createVoxel = ({ worker, camera: cc, debug, onReady }: { worker: Worker; camera?: any; debug?: Debug; onReady?: () => void }) => {
-        const cam = cc ? createCamera(cc) : null
+export const createVoxel = ({ worker, camera: cc, debug, onReady }: { worker: Worker; camera?: CameraConfig; debug?: Debug; onReady?: () => void }) => {
+        const cam = createCamera(cc || {})
         const mesh = createMesh()
         const store = createStore(mesh, worker, debug)
         const slots = createSlots(SLOT)
-        const mvp = cam ? cam.MVP : M.create()
-        const pos = cam ? cam.pos : V.create()
-        const eye = cam ? cam.eye : V.create()
+        const { MVP: mvp, pos, eye } = cam
         const { vis, regions } = createVis(mvp, pos, store, debug)
         let isLoading = false
         let isFirst = true
@@ -88,7 +87,6 @@ export const createVoxel = ({ worker, camera: cc, debug, onReady }: { worker: Wo
                 return r.pick(...localOf(wx, wy, wz, ri, rj))
         }
         const doTick = () => {
-                if (!cam) return
                 pt = ts
                 ts = performance.now()
                 const dt = Math.min((ts - pt) / 1000, 0.03)
@@ -125,20 +123,12 @@ export const createVoxel = ({ worker, camera: cc, debug, onReady }: { worker: Wo
                 hasExplicitRender = true
                 doRender()
         }
-        const camObj = Object.assign(
-                {
-                        pos,
-                        eye,
-                        mvp,
-                        get aspect() {
-                                return aspect
-                        },
-                        set aspect(v: number) {
-                                aspect = v
-                        },
-                },
-                cam ? { turn: cam.turn, asdw: cam.asdw, space: cam.space, shift: cam.shift, reset: cam.reset, mode: cam.mode, yaw: cam.yaw, pitch: cam.pitch } : {},
-        )
+        const camObj: Camera & { aspect: number } = {
+                pos, eye, mvp,
+                get aspect() { return aspect },
+                set aspect(v: number) { aspect = v },
+                turn: cam.turn, asdw: cam.asdw, space: cam.space, shift: cam.shift, reset: cam.reset, mode: cam.mode, yaw: cam.yaw, pitch: cam.pitch,
+        }
         return { cam: camObj, render, updates, updated: () => updated, overflow: mesh.overflow, pos: mesh.pos, scl: mesh.scl, aid: mesh.aid, count: mesh.count, pick, map: store.map }
 }
 

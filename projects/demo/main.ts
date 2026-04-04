@@ -70,7 +70,7 @@ const frag = Scope(() => {
         return vec4(rgb, 1)
 })
 const worker = new VoxelWorker()
-const voxel = createVoxel({ worker, camera: { X: 22912, Y: 800, Z: 20096, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: 'scroll', autoScroll: true } })
+const voxel = createVoxel({ worker, camera: { x: 22912, y: 800, z: 20096, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: 'scroll', autoScroll: true } })
 
 const gl = createGL({
         precision: 'highp',

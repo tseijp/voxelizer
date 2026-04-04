@@ -9,7 +9,7 @@ const _t3 = M.create()
 
 const clampToFace = (pos = 0, half = 0.5, sign = 0, base = Math.floor(pos)) => (sign > 0 ? Math.min(pos, base + 1 - half) : Math.max(pos, base + half))
 
-const createCollider = ({ SIZE = [0.8, 1.8, 0.8], GRAVITY = -50, JUMP = 12, GROUND = 0, Y = 0 }) => {
+const createCollider = ({ size = [0.8, 1.8, 0.8], gravity = -50, jump = 12, ground = 0, y = 0 }) => {
         let isGround = false
         const collide = (pos: ReturnType<typeof V.create>, vel: ReturnType<typeof V.create>, axis = 0, pick = (_x = 0, _y = 0, _z = 0) => 0) => {
                 const v = vel[axis]
@@ -19,11 +19,11 @@ const createCollider = ({ SIZE = [0.8, 1.8, 0.8], GRAVITY = -50, JUMP = 12, GROU
                 xyz[axis] += s
                 if (!pick(...V.floor(xyz, xyz))) return
                 if (axis === 1 && s < 0) isGround = true
-                pos[axis] = clampToFace(pos[axis], SIZE[axis] * 0.5, s)
+                pos[axis] = clampToFace(pos[axis], size[axis] * 0.5, s)
                 vel[axis] = 0
         }
         const tick = (dt = 0, pos: ReturnType<typeof V.create>, vel: ReturnType<typeof V.create>, pick = (_x = 0, _y = 0, _z = 0) => 0) => {
-                vel[1] += GRAVITY * dt
+                vel[1] += gravity * dt
                 const vmax = Math.max(Math.abs(vel[0]), Math.abs(vel[1]), Math.abs(vel[2]))
                 let steps = Math.ceil((vmax * dt) / 0.25)
                 if (steps < 1) steps = 1
@@ -37,12 +37,12 @@ const createCollider = ({ SIZE = [0.8, 1.8, 0.8], GRAVITY = -50, JUMP = 12, GROU
                         pos[2] += vel[2] * sdt
                         collide(pos, vel, 2, pick)
                 }
-                if (pos[1] < GROUND) void ((pos[1] = Y / 4), (vel[1] = 0))
+                if (pos[1] < ground) void ((pos[1] = y / 4), (vel[1] = 0))
         }
-        const jump = (vel: ReturnType<typeof V.create>) => {
-                if (isGround) vel[1] = JUMP
+        const doJump = (vel: ReturnType<typeof V.create>) => {
+                if (isGround) vel[1] = jump
         }
-        return { tick, jump, isGround: () => isGround }
+        return { tick, jump: doJump, isGround: () => isGround }
 }
 
 const lookAt = (eye = V.create(), pos = V.create(), face = V.create()) => {
@@ -92,13 +92,13 @@ const turnRate = (mode = 'scroll') => {
         return 0
 }
 
-export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mode = 'scroll' as string, autoScroll = false, X = 0, Y = 0, Z = 0, DASH = 3, MOVE = 12, JUMP = 12, GROUND = 0, SIZE = [0.8, 1.8, 0.8], GRAVITY = -50, TURN = 1 / 250 }) => {
-        let dash = 1
+export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mode = 'scroll' as string, autoScroll = false, x = 0, y = 0, z = 0, dash = 3, move = 12, jump = 12, ground = 0, size = [0.8, 1.8, 0.8], gravity = -50, sens = 1 / 250 }) => {
+        let dashing = 1
         let scroll = 0
-        const collider = createCollider({ SIZE, GRAVITY, JUMP, GROUND, Y })
+        const collider = createCollider({ size, gravity, jump, ground, y })
         const MVP = M.create()
-        const pos = V.fromValues(X, Y, Z)
-        const eye = V.fromValues(X - 10, Y, Z)
+        const pos = V.fromValues(x, y, z)
+        const eye = V.fromValues(x - 10, y, z)
         const vel = V.fromValues(0, 0, 0)
         const dir = V.fromValues(0, 0, 0)
         const face = V.fromValues(-1, 0, 0)
@@ -109,7 +109,7 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
         }
         const shift = (isPress = true) => {
                 if (mode === 'creative') return asdw(0, isPress ? -1 : 0)
-                if (mode === 'survive') return void (dash = isPress ? DASH : 1)
+                if (mode === 'survive') return void (dashing = isPress ? dash : 1)
         }
         const space = (isPress = true) => {
                 if (mode === 'creative') return asdw(0, isPress ? 1 : 0)
@@ -117,8 +117,8 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
         }
         const turn = (delta = [0, 0]) => {
                 const r = turnRate(mode)
-                yaw += delta[0] * r * TURN
-                pitch += delta[1] * r * TURN
+                yaw += delta[0] * r * sens
+                pitch += delta[1] * r * sens
                 pitch = Math.min(pitch, Math.PI / 2 - 0.01)
                 pitch = Math.max(pitch, -Math.PI / 2 + 0.01)
                 faceDir(face, yaw, pitch)
@@ -131,17 +131,17 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
         const tick = (dt = 0, pick = (_x = 0, _y = 0, _z = 0) => 0) => {
                 if (mode === 'scroll') {
                         if (!autoScroll) return
-                        scroll -= dt * MOVE
-                        pos[0] = X + scroll
+                        scroll -= dt * move
+                        pos[0] = x + scroll
                         if (pos[0] < 0) pos[0] = ROW * REGION
                         if (pos[0] > ROW * REGION) pos[0] = 0
                         lookAt(eye, pos, face)
                         return
                 }
-                const speed = MOVE * dash * (mode === 'creative' ? 20 : 1)
-                const move = moveDir(V.clone(face), dir, speed, mode === 'survive')
-                vel[0] = move[0]
-                vel[2] = move[2]
+                const speed = move * dashing * (mode === 'creative' ? 20 : 1)
+                const heading = moveDir(V.clone(face), dir, speed, mode === 'survive')
+                vel[0] = heading[0]
+                vel[2] = heading[2]
                 if (mode === 'creative') {
                         pos[0] += vel[0] * dt
                         pos[1] += dir[1] * dt * speed
@@ -150,10 +150,11 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
                 if (mode === 'survive') collider.tick(dt, pos, vel, pick)
                 lookAt(eye, pos, face)
         }
-        const update = (aspect = 1) => perspective(MVP, pos, eye, aspect, SIZE[1] * 0.5)
+        const update = (aspect = 1) => perspective(MVP, pos, eye, aspect, size[1] * 0.5)
         faceDir(face, yaw, pitch)
         lookAt(eye, pos, face)
         return { pos, eye, MVP, reset, tick, turn, shift, space, asdw, update, mode: (x = 'scroll') => (mode = x), yaw: () => yaw, pitch: () => pitch }
 }
 
+export type CameraConfig = Parameters<typeof createCamera>[0]
 export type Camera = ReturnType<typeof createCamera>
