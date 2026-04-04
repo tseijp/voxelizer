@@ -9,37 +9,37 @@ Through Web Worker asynchronous processing and priority-based task queuing,
 it performs Atlas image fetching, decoding, and mesh generation without blocking the main thread.
 
 ```ts
-┌────────────────────────────────────────────────────────────┐
-│                 voxelized-js Architecture                  │
-├────────────────────────────────────────────────────────────┤
-│         ┌─────────────┐                                    │
-│         │   Camera    │                                    │
-│         │  (viewport) │                                    │
-│         └──────┬──────┘                                    │
-│                ▼                                           │
-│  ┌─────────────────────────────────────────┐               │
-│  │              Scene                      │               │
-│  │  ┌──────────┐ ┌──────┐ ┌──────────┐    │               │
-│  │  │   Vis    │ │ Mesh │ │  Slots   │    │               │
-│  │  │(culling) │ │(vtx) │ │(tex ctrl)│    │               │
-│  │  └──────────┘ └──────┘ └──────────┘    │               │
-│  │  ┌──────────┐                          │               │
-│  │  │  Store   │                          │               │
-│  │  │(Rgn ctrl)│                          │               │
-│  │  └────┬─────┘                          │               │
-│  └───────┼────────────────────────────────┘               │
-│     ┌────┴────┐                                           │
-│     ▼         ▼                                           │
-│ ┌────────┐ ┌─────────┐                                    │
-│ │ Queue  │ │ Worker  │──▶ CDN/R2 Storage                  │
-│ │(Task)  │ │(off-thr)│    (Atlas delivery)                │
-│ └────┬───┘ └─────────┘                                    │
-│      ▼                                                    │
-│ ┌─────────┐                                               │
-│ │ Region  │                                               │
-│ │(unit)   │                                               │
-│ └─────────┘                                               │
-└────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                voxelized-js Architecture                │
+├─────────────────────────────────────────────────────────┤
+│        ┌─────────────┐                                  │
+│        │   Camera    │                                  │
+│        │  (viewport) │                                  │
+│        └──────┬──────┘                                  │
+│               ▼                                         │
+│  ┌──────────────────────────────────────┐               │
+│  │              Scene                   │               │
+│  │  ┌──────────┐ ┌──────┐ ┌──────────┐  │               │
+│  │  │   Vis    │ │ Mesh │ │  Slots   │  │               │
+│  │  │(culling) │ │(vtx) │ │(tex ctrl)│  │               │
+│  │  └──────────┘ └──────┘ └──────────┘  │               │
+│  │  ┌──────────┐                        │               │
+│  │  │  Store   │                        │               │
+│  │  │(Rgn ctrl)│                        │               │
+│  │  └────┬─────┘                        │               │
+│  └───────┼──────────────────────────────┘               │
+│     ┌────┴────┐                                         │
+│     ▼         ▼                                         │
+│ ┌────────┐ ┌─────────┐                                  │
+│ │ Queue  │ │ Worker  │──▶ CDN/R2 Storage                │
+│ │(Task)  │ │(off-thr)│    (Atlas delivery)              │
+│ └────┬───┘ └─────────┘                                  │
+│      ▼                                                  │
+│ ┌─────────┐                                             │
+│ │ Region  │                                             │
+│ │(unit)   │                                             │
+│ └─────────┘                                             │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ## Spatial Model: Correspondence Between Web Mercator Tiles and Voxel Regions
@@ -269,18 +269,18 @@ In mode='survive', Collider applies AABB collision detection and gravity.
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-| Parameter    | Default         | Description                  |
-| ------------ | --------------- | ---------------------------- |
-| x, y, z      | 0, 0, 0         | Initial position             |
-| yaw, pitch   | 0, 0            | Initial view angle (radians) |
-| mode         | 'scroll'        | Camera mode string           |
-| autoScroll   | false           | Auto-scroll in scroll mode   |
-| move         | 12              | Movement speed (m/s)         |
-| dash         | 3               | Dash multiplier              |
-| jump         | 12              | Jump initial velocity (m/s)  |
-| gravity      | -50             | Gravity acceleration (m/s²)  |
-| size         | [0.8, 1.8, 0.8] | Collision box size           |
-| sens         | 1/250           | View rotation sensitivity    |
+| Parameter  | Default         | Description                  |
+| ---------- | --------------- | ---------------------------- |
+| x, y, z    | 0, 0, 0         | Initial position             |
+| yaw, pitch | 0, 0            | Initial view angle (radians) |
+| mode       | 'scroll'        | Camera mode string           |
+| autoScroll | false           | Auto-scroll in scroll mode   |
+| move       | 12              | Movement speed (m/s)         |
+| dash       | 3               | Dash multiplier              |
+| jump       | 12              | Jump initial velocity (m/s)  |
+| gravity    | -50             | Gravity acceleration (m/s²)  |
+| size       | [0.8, 1.8, 0.8] | Collision box size           |
+| sens       | 1/250           | View rotation sensitivity    |
 
 ## Worker Processing: Asynchronous Execution Without Blocking Main Thread
 
@@ -378,10 +378,10 @@ const render = () => {
 }
 ```
 
-| Factory Function | Creates | Required Args              | Notes                    |
-| ---------------- | ------- | -------------------------- | ------------------------ |
-| createVoxel      | Voxel   | Worker, CameraConfig?      | 1 per canvas             |
-| createDebug      | Debug   | none                       | optional, for monitoring |
+| Factory Function | Creates | Required Args         | Notes                    |
+| ---------------- | ------- | --------------------- | ------------------------ |
+| createVoxel      | Voxel   | Worker, CameraConfig? | 1 per canvas             |
+| createDebug      | Debug   | none                  | optional, for monitoring |
 
 ## Coordinate Transformation Utility Reference
 
