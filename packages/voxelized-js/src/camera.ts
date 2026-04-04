@@ -1,4 +1,4 @@
-import { M, REGION, ROW, V } from './utils'
+import { M, V } from './utils'
 
 const _up = V.fromValues(0, 1, 0)
 const _fwd = V.fromValues(0, 0, -1)
@@ -85,16 +85,15 @@ const perspective = (MVP = M.create(), pos = V.create(), eye = V.create(), aspec
         M.multiply(MVP, _t2, _t3)
 }
 
-const turnRate = (mode = 0) => {
-        if (mode === -1) return 0
-        if (mode === 0) return 1.5
-        if (mode === 1) return 1
+const turnRate = (mode = 'scroll') => {
+        if (mode === 'scroll') return 0
+        if (mode === 'creative') return 1.5
+        if (mode === 'survive') return 1
         return 0
 }
 
-export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mode = -1, X = 0, Y = 0, Z = 0, DASH = 3, MOVE = 12, JUMP = 12, GROUND = 0, SIZE = [0.8, 1.8, 0.8], GRAVITY = -50, TURN = 1 / 250 }) => {
+export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mode = 'scroll' as string, X = 0, Y = 0, Z = 0, DASH = 3, MOVE = 12, JUMP = 12, GROUND = 0, SIZE = [0.8, 1.8, 0.8], GRAVITY = -50, TURN = 1 / 250 }) => {
         let dash = 1
-        let scroll = 0
         const collider = createCollider({ SIZE, GRAVITY, JUMP, GROUND, Y })
         const MVP = M.create()
         const pos = V.fromValues(X, Y, Z)
@@ -108,12 +107,12 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
                 if (axis === 2) return void (dir[0] = delta)
         }
         const shift = (isPress = true) => {
-                if (mode === 0) return asdw(0, isPress ? -1 : 0)
-                if (mode === 1) return void (dash = isPress ? DASH : 1)
+                if (mode === 'creative') return asdw(0, isPress ? -1 : 0)
+                if (mode === 'survive') return void (dash = isPress ? DASH : 1)
         }
         const space = (isPress = true) => {
-                if (mode === 0) return asdw(0, isPress ? 1 : 0)
-                if (mode === 1 && isPress) return collider.jump(vel)
+                if (mode === 'creative') return asdw(0, isPress ? 1 : 0)
+                if (mode === 'survive' && isPress) return collider.jump(vel)
         }
         const turn = (delta = [0, 0]) => {
                 const r = turnRate(mode)
@@ -129,30 +128,23 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
                 lookAt(eye, pos, face)
         }
         const tick = (dt = 0, pick = (_x = 0, _y = 0, _z = 0) => 0) => {
-                if (mode === 2) return
-                if (mode === -1) {
-                        scroll -= dt * MOVE
-                        pos[0] = X + scroll
-                        if (pos[0] < 0) pos[0] = ROW * REGION
-                        if (pos[0] > ROW * REGION) pos[0] = 0
-                        lookAt(eye, pos, face)
-                }
-                const speed = MOVE * dash * (mode === 0 ? 20 : 1)
-                const move = moveDir(V.clone(face), dir, speed, mode === 1)
+                if (mode === 'scroll') return
+                const speed = MOVE * dash * (mode === 'creative' ? 20 : 1)
+                const move = moveDir(V.clone(face), dir, speed, mode === 'survive')
                 vel[0] = move[0]
                 vel[2] = move[2]
-                if (mode === 0) {
+                if (mode === 'creative') {
                         pos[0] += vel[0] * dt
                         pos[1] += dir[1] * dt * speed
                         pos[2] += vel[2] * dt
                 }
-                if (mode === 1) collider.tick(dt, pos, vel, pick)
+                if (mode === 'survive') collider.tick(dt, pos, vel, pick)
                 lookAt(eye, pos, face)
         }
         const update = (aspect = 1) => perspective(MVP, pos, eye, aspect, SIZE[1] * 0.5)
         faceDir(face, yaw, pitch)
         lookAt(eye, pos, face)
-        return { pos, eye, MVP, reset, tick, turn, shift, space, asdw, update, mode: (x = 0) => (mode = x), yaw: () => yaw, pitch: () => pitch }
+        return { pos, eye, MVP, reset, tick, turn, shift, space, asdw, update, mode: (x = 'scroll') => (mode = x), yaw: () => yaw, pitch: () => pitch }
 }
 
 export type Camera = ReturnType<typeof createCamera>

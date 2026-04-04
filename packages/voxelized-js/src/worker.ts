@@ -1,5 +1,4 @@
 import { loadBitmap, ATLAS_EXT, ATLAS_URL, REGION, atlas2occ, loadContext } from './utils'
-import type { WorkerMessage, WorkerResponse } from './scene'
 
 type GreedyMesh = (occ: Uint8Array, size: number) => { pos: Float32Array; scl: Float32Array; cnt: number }
 
@@ -55,4 +54,25 @@ export const createWorkerHandler = (greedyMesh: GreedyMesh) => {
                         post({ id, mode: 'error', error: errorMessage(err) })
                 })
         }
+}
+
+export type WorkerMode = 'none' | 'image' | 'full' | 'error'
+
+export type WorkerMessage = { id: number; i: number; j: number; mode: 'image' | 'full' } | { id: number; abort: true }
+
+export type WorkerResponse = {
+        id: number
+        mode: WorkerMode
+        bitmap?: ImageBitmap
+        mesh?: { pos: Float32Array; scl: Float32Array; cnt: number }
+        occ?: Uint8Array
+        error?: string
+}
+
+export type WorkerResult = {
+        bitmap: ImageBitmap
+        mesh?: { pos: Float32Array; scl: Float32Array; cnt: number }
+        occ?: Uint8Array
+        mode: WorkerMode
+        memo?: any
 }
