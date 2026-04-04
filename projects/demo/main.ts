@@ -70,7 +70,7 @@ const frag = Scope(() => {
         return vec4(rgb, 1)
 })
 const worker = new VoxelWorker()
-const voxel = createVoxel({ worker, camera: { X: 22912, Y: 800, Z: 20096, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: 'scroll' } })
+const voxel = createVoxel({ worker, camera: { X: 22912, Y: 800, Z: 20096, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: 'scroll', autoScroll: true } })
 
 const gl = createGL({
         precision: 'highp',
@@ -88,10 +88,10 @@ const gl = createGL({
                         gl._texture('iAtlas', atlas, at)
                 })
                 gl._uniform?.('iMVP', [...voxel.cam.mvp])
-                if (!voxel.updated()) return
                 gl._instance('pos', voxel.pos())
                 gl._instance('scl', voxel.scl())
                 gl._instance('aid', voxel.aid())
+                if (!voxel.updated()) return
                 gl.setInstanceCount(voxel.count())
         },
 })

@@ -1,4 +1,4 @@
-import { M, V } from './utils'
+import { M, REGION, ROW, V } from './utils'
 
 const _up = V.fromValues(0, 1, 0)
 const _fwd = V.fromValues(0, 0, -1)
@@ -92,8 +92,9 @@ const turnRate = (mode = 'scroll') => {
         return 0
 }
 
-export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mode = 'scroll' as string, X = 0, Y = 0, Z = 0, DASH = 3, MOVE = 12, JUMP = 12, GROUND = 0, SIZE = [0.8, 1.8, 0.8], GRAVITY = -50, TURN = 1 / 250 }) => {
+export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mode = 'scroll' as string, autoScroll = false, X = 0, Y = 0, Z = 0, DASH = 3, MOVE = 12, JUMP = 12, GROUND = 0, SIZE = [0.8, 1.8, 0.8], GRAVITY = -50, TURN = 1 / 250 }) => {
         let dash = 1
+        let scroll = 0
         const collider = createCollider({ SIZE, GRAVITY, JUMP, GROUND, Y })
         const MVP = M.create()
         const pos = V.fromValues(X, Y, Z)
@@ -128,7 +129,15 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
                 lookAt(eye, pos, face)
         }
         const tick = (dt = 0, pick = (_x = 0, _y = 0, _z = 0) => 0) => {
-                if (mode === 'scroll') return
+                if (mode === 'scroll') {
+                        if (!autoScroll) return
+                        scroll -= dt * MOVE
+                        pos[0] = X + scroll
+                        if (pos[0] < 0) pos[0] = ROW * REGION
+                        if (pos[0] > ROW * REGION) pos[0] = 0
+                        lookAt(eye, pos, face)
+                        return
+                }
                 const speed = MOVE * dash * (mode === 'creative' ? 20 : 1)
                 const move = moveDir(V.clone(face), dir, speed, mode === 'survive')
                 vel[0] = move[0]
