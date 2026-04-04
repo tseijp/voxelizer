@@ -82,7 +82,7 @@ const gl = createGL({
         vert,
         frag,
         render() {
-                voxel.cam.aspect = gl.size[0] / gl.size[1]
+                voxel.cam.update(gl.size[0] / gl.size[1])
                 voxel.updates(({ at, atlas, offset }) => {
                         gl._uniform('iOffset', offset, at)
                         gl._texture('iAtlas', atlas, at)

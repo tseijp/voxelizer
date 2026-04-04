@@ -244,14 +244,14 @@ This places spatially adjacent voxels close together in the image, improving cac
 ## Camera Control: Three View Modes and Collision Detection
 
 Camera behavior switches based on mode.
-mode=-1 is overhead scroll, mode=0 is free flight, mode=1 is first-person walk.
-In mode=1, Collider applies AABB collision detection and gravity.
+mode='scroll' is overhead scroll, mode='creative' is free flight, mode='survive' is first-person walk.
+In mode='survive', Collider applies AABB collision detection and gravity.
 
 ```ts
 ┌──────────────────────────────────────────────────────────────────┐
 │                      Camera Mode Comparison                      │
 ├──────────────────────────────────────────────────────────────────┤
-│ mode = -1 (overhead)     mode = 0 (flight)       mode = 1 (walk) │
+│ mode = 'scroll'          mode = 'creative'       mode = 'survive'│
 │ ────────────────────     ─────────────────       ─────────────── │
 │      ▽ camera                 ● camera               ● camera    │
 │     /│\                      /│\                    /│\          │
@@ -263,22 +263,24 @@ In mode=1, Collider applies AABB collision detection and gravity.
 │                                                                  │
 │ Input Controls:                                                  │
 │   WASD: forward/back/left/right movement                         │
-│   Space: mode=0 ascend, mode=1 jump                              │
-│   Shift: mode=0 descend, mode=1 dash                             │
-│   Mouse: mode=0,1 view rotation                                  │
+│   Space: creative ascend, survive jump                           │
+│   Shift: creative descend, survive dash                          │
+│   Mouse: creative,survive view rotation                          │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-| Parameter  | Default         | Description                  |
-| ---------- | --------------- | ---------------------------- |
-| X, Y, Z    | 0, 0, 0         | Initial position             |
-| yaw, pitch | 0, 0            | Initial view angle (radians) |
-| MOVE       | 12              | Movement speed (m/s)         |
-| DASH       | 3               | Dash multiplier              |
-| JUMP       | 12              | Jump initial velocity (m/s)  |
-| GRAVITY    | -50             | Gravity acceleration (m/s²)  |
-| SIZE       | [0.8, 1.8, 0.8] | Collision box size           |
-| TURN       | 1/250           | View rotation sensitivity    |
+| Parameter    | Default         | Description                  |
+| ------------ | --------------- | ---------------------------- |
+| x, y, z      | 0, 0, 0         | Initial position             |
+| yaw, pitch   | 0, 0            | Initial view angle (radians) |
+| mode         | 'scroll'        | Camera mode string           |
+| autoScroll   | false           | Auto-scroll in scroll mode   |
+| move         | 12              | Movement speed (m/s)         |
+| dash         | 3               | Dash multiplier              |
+| jump         | 12              | Jump initial velocity (m/s)  |
+| gravity      | -50             | Gravity acceleration (m/s²)  |
+| size         | [0.8, 1.8, 0.8] | Collision box size           |
+| sens         | 1/250           | View rotation sensitivity    |
 
 ## Worker Processing: Asynchronous Execution Without Blocking Main Thread
 
@@ -363,25 +365,22 @@ When there are 0 listeners, no measurements are taken, ensuring no impact on pro
 ## Usage Pattern: Basic Initialization and Render Loop
 
 ```ts
-const cam = createCamera({ X: 0, Y: 100, Z: 0 })
-const scene = createScene(cam, worker, debug?)
+const voxel = createVoxel({ worker, camera?: { x, y, z, ... }, debug?, onReady? })
 
 const render = () => {
-        cam.update(aspect)
-        scene.render()
-        scene.updates(({ at, atlas, offset }) => {
+        voxel.cam.aspect = canvasWidth / canvasHeight
+        voxel.updates(({ at, atlas, offset }) => {
                 // consumer handles texture upload (glre, THREE.js, etc.)
         })
-        if (scene.updated) {
-                // scene.pos, scene.scl, scene.aid, scene.count
+        if (voxel.updated()) {
+                // voxel.pos(), voxel.scl(), voxel.aid(), voxel.count()
         }
 }
 ```
 
 | Factory Function | Creates | Required Args              | Notes                    |
 | ---------------- | ------- | -------------------------- | ------------------------ |
-| createCamera     | Camera  | position/angle params      | 1 per canvas             |
-| createScene      | Scene   | Camera, Worker, Debug?     | 1 per canvas             |
+| createVoxel      | Voxel   | Worker, CameraConfig?      | 1 per canvas             |
 | createDebug      | Debug   | none                       | optional, for monitoring |
 
 ## Coordinate Transformation Utility Reference

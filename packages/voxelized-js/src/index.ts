@@ -1,9 +1,9 @@
 import { createSlots } from './slot'
 import { createStore } from './store'
 import { createCamera } from './camera'
-import type { Camera, CameraConfig } from './camera'
+import type { CameraConfig } from './camera'
 import { createMesh } from './mesh'
-import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId, M, V } from './utils'
+import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId } from './utils'
 import type { Debug } from './debug'
 import type { Region } from './region'
 import type { SlotUpdate } from './slot'
@@ -67,7 +67,7 @@ export const createVoxel = ({ worker, camera: cc, debug, onReady }: { worker: Wo
         const mesh = createMesh()
         const store = createStore(mesh, worker, debug)
         const slots = createSlots(SLOT)
-        const { MVP: mvp, pos, eye } = cam
+        const { mvp, pos } = cam
         const { vis, regions } = createVis(mvp, pos, store, debug)
         let isLoading = false
         let isFirst = true
@@ -77,8 +77,6 @@ export const createVoxel = ({ worker, camera: cc, debug, onReady }: { worker: Wo
         let hasExplicitRender = false
         let ts = performance.now()
         let pt = ts
-        let aspect = 16 / 9
-
         const pick = (wx = 0, wy = 0, wz = 0) => {
                 const [ri, rj] = posOf(wx, wz)
                 if (!scoped(ri, rj)) return 0
@@ -91,7 +89,7 @@ export const createVoxel = ({ worker, camera: cc, debug, onReady }: { worker: Wo
                 ts = performance.now()
                 const dt = Math.min((ts - pt) / 1000, 0.03)
                 if (isReady) cam.tick(dt, pick)
-                cam.update(aspect)
+                cam.update()
         }
         const doRender = () => {
                 const now = performance.now()
@@ -123,13 +121,7 @@ export const createVoxel = ({ worker, camera: cc, debug, onReady }: { worker: Wo
                 hasExplicitRender = true
                 doRender()
         }
-        const camObj: Camera & { aspect: number } = {
-                pos, eye, mvp,
-                get aspect() { return aspect },
-                set aspect(v: number) { aspect = v },
-                turn: cam.turn, asdw: cam.asdw, space: cam.space, shift: cam.shift, reset: cam.reset, mode: cam.mode, yaw: cam.yaw, pitch: cam.pitch,
-        }
-        return { cam: camObj, render, updates, updated: () => updated, overflow: mesh.overflow, pos: mesh.pos, scl: mesh.scl, aid: mesh.aid, count: mesh.count, pick, map: store.map }
+        return { cam, render, updates, updated: () => updated, overflow: mesh.overflow, pos: mesh.pos, scl: mesh.scl, aid: mesh.aid, count: mesh.count, pick, map: store.map }
 }
 
 export default createVoxel

@@ -75,14 +75,14 @@ const moveDir = (out = V.create(), dir = V.create(), speed = 1, planar = false) 
         return out
 }
 
-const perspective = (MVP = M.create(), pos = V.create(), eye = V.create(), aspect = 1, offsetY = 0) => {
+const perspective = (mvp = M.create(), pos = V.create(), eye = V.create(), aspect = 1, offsetY = 0) => {
         M.perspective(_t2, (28 * Math.PI) / 180, aspect, 0.1, 4000)
         V.copy(_t0, pos)
         V.copy(_t1, eye)
         _t0[1] += offsetY
         _t1[1] += offsetY
         M.lookAt(_t3, _t0, _t1, _up)
-        M.multiply(MVP, _t2, _t3)
+        M.multiply(mvp, _t2, _t3)
 }
 
 const turnRate = (mode = 'scroll') => {
@@ -96,7 +96,7 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
         let dashing = 1
         let scroll = 0
         const collider = createCollider({ size, gravity, jump, ground, y })
-        const MVP = M.create()
+        const mvp = M.create()
         const pos = V.fromValues(x, y, z)
         const eye = V.fromValues(x - 10, y, z)
         const vel = V.fromValues(0, 0, 0)
@@ -150,10 +150,11 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
                 if (mode === 'survive') collider.tick(dt, pos, vel, pick)
                 lookAt(eye, pos, face)
         }
-        const update = (aspect = 1) => perspective(MVP, pos, eye, aspect, size[1] * 0.5)
+        let _aspect = 16 / 9
+        const update = (a = _aspect) => perspective(mvp, pos, eye, (_aspect = a), size[1] * 0.5)
         faceDir(face, yaw, pitch)
         lookAt(eye, pos, face)
-        return { pos, eye, MVP, reset, tick, turn, shift, space, asdw, update, mode: (x = 'scroll') => (mode = x), yaw: () => yaw, pitch: () => pitch }
+        return { pos, eye, mvp, reset, tick, turn, shift, space, asdw, update, mode: (x = 'scroll') => (mode = x), yaw: () => yaw, pitch: () => pitch }
 }
 
 export type CameraConfig = Parameters<typeof createCamera>[0]
