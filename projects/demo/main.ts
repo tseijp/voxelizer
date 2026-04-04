@@ -1,7 +1,7 @@
 import { createGL } from '../../../../packages/core/src'
 import { box } from '../../../../packages/core/src/buffers'
-import { float, Fn, instance, mat4, Scope, texelFetch, texture2D, uint, uniform, uniformArray, uvec2, uvec3, varying, vec3, vec4 } from '../../../../packages/core/src/node'
-import { createCamera, createScene, range } from 'voxelized-js/src'
+import { float, Fn, fragDepth, instance, mat4, Scope, texelFetch, texture2D, uint, uniform, uniformArray, uvec2, uvec3, varying, vec3, vec4 } from '../../../../packages/core/src/node'
+import createVoxel from 'voxelized-js/src'
 import VoxelWorker from './worker?worker'
 import type { Float, UInt, UVec2, UVec3, Vec3 } from '../../../../packages/core/src/node'
 
@@ -17,6 +17,7 @@ const aid = instance<'float'>(float(), 'aid')
 const vCenter = varying<'vec3'>(vec3(), 'vCenter')
 const vDiffuse = varying<'float'>(float(), 'vDiffuse')
 const vAid = varying<'float'>(float(), 'vAid')
+const vLogW = varying<'float'>(float(), 'vLogW')
 const xyz2m = Fn(([xyz]: [UVec3]): UInt => {
         const p = xyz.toVar()
         p.bitOrAssign(p.shiftLeft(uvec3(uint(16))))
@@ -42,6 +43,7 @@ const m2uv = Fn(([morton]: [UInt]): UVec2 => {
         p.bitAndAssign(uvec2(uint(0x0000ffff)))
         return p
 })
+const FC = float(2.0).div(float(4001.0).log2()).constant()
 const pick = Fn(([id, uvPix]: [Float, UVec2]) => {
         return texelFetch(iAtlas.element(id.toInt()), uvPix.toIVec2(), uint(0))
 })
@@ -53,28 +55,26 @@ const vert = Scope(() => {
         const local = vertex.mul(scl).add(pos)
         const world = off.add(local)
         const center = local.sub(normal.sign().mul(0.5)).floor()
+        const position = iMVP.mul(vec4(world, 1)).toVar('clip')
         vCenter.assign(center)
         vDiffuse.assign(diffuse(normal))
         vAid.assign(aid)
-        return iMVP.mul(vec4(world, 1))
+        vLogW.assign(float(1.0).add(position.w))
+        return position
 })
 const frag = Scope(() => {
         const p = vCenter.toUVec3()
         const uv = m2uv(xyz2m(p)).toVar('uv')
         const rgb = pick(vAid, uv).rgb.mul(vDiffuse).toVar('rgb')
+        fragDepth.assign(vLogW.log2().mul(FC).mul(0.5))
         return vec4(rgb, 1)
 })
 const worker = new VoxelWorker()
-const cam = createCamera({ X: 22912, Y: 800, Z: 20096, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: -1 })
-const scene = createScene(cam, worker)
-
-let ts = performance.now()
-let pt = ts
+const voxel = createVoxel({ worker, camera: { x: 22912, y: 800, z: 20096, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: 'scroll', autoScroll: true } })
 
 const gl = createGL({
         precision: 'highp',
         isWebGL: false,
-        // isWebGL: true,
         isDepth: true,
         triangleCount: 12,
         instanceCount: 1,
@@ -82,32 +82,26 @@ const gl = createGL({
         vert,
         frag,
         render() {
-                pt = ts
-                ts = performance.now()
-                const dt = Math.min((ts - pt) / 1000, 0.03)
-                cam.tick(dt, scene.pick)
-                cam.update(gl.size[0] / gl.size[1])
-                scene.render()
-                scene.updates(({ at, atlas, offset }) => {
+                voxel.cam.update(gl.size[0] / gl.size[1])
+                voxel.updates(({ at, atlas, offset }) => {
                         gl._uniform('iOffset', offset, at)
                         gl._texture('iAtlas', atlas, at)
                 })
-                gl._uniform?.('iMVP', [...cam.MVP])
-                if (!scene.updated) return
-                gl._instance('pos', scene.pos())
-                gl._instance('scl', scene.scl())
-                gl._instance('aid', scene.aid())
-                gl.setInstanceCount(scene.count())
+                gl._uniform?.('iMVP', [...voxel.cam.mvp])
+                gl._instance('pos', voxel.pos())
+                gl._instance('scl', voxel.scl())
+                gl._instance('aid', voxel.aid())
+                if (!voxel.updated()) return
+                gl.setInstanceCount(voxel.count())
         },
 })
 
-// for webgpu binding layout
 const empty = new OffscreenCanvas(4096, 4096)
 empty.getContext('2d')
 
-range(16).map((i) => {
+for (let i = 0; i < 16; i++) {
         gl.uniform('iOffset', [0, 0, 0], i)
         gl.texture('iAtlas', empty, i)
-})
+}
 
 gl.mount()

@@ -2,9 +2,9 @@ import { createRegion } from './region'
 import { createQueues } from './queue'
 import { PREPURGE, regionId } from './utils'
 import type { Debug } from './debug'
-import type { Mesh } from './scene'
+import type { Mesh } from './mesh'
 import type { Region } from './region'
-import type { WorkerResponse, WorkerResult } from './scene'
+import type { WorkerResponse, WorkerResult } from './worker'
 
 type Pending = { resolve: (v: WorkerResult) => void; reject: (e?: unknown) => void; t: number }
 
