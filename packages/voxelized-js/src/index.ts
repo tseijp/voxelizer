@@ -74,7 +74,6 @@ export const createVoxel = ({ worker, camera: cc, debug, onReady }: { worker: Wo
         let isReady = false
         let renderPt = performance.now()
         let updated = false
-        let hasExplicitRender = false
         let ts = performance.now()
         let pt = ts
         const pick = (wx = 0, wy = 0, wz = 0) => {
@@ -84,14 +83,12 @@ export const createVoxel = ({ worker, camera: cc, debug, onReady }: { worker: Wo
                 if (!r) return 0
                 return r.pick(...localOf(wx, wy, wz, ri, rj))
         }
-        const doTick = () => {
+        const updates = (fn: (u: SlotUpdate) => void) => {
                 pt = ts
                 ts = performance.now()
                 const dt = Math.min((ts - pt) / 1000, 0.03)
                 if (isReady) cam.tick(dt, pick)
                 cam.update()
-        }
-        const doRender = () => {
                 const now = performance.now()
                 if (!isLoading && (isFirst || now - renderPt >= 100)) {
                         isFirst = false
@@ -111,17 +108,9 @@ export const createVoxel = ({ worker, camera: cc, debug, onReady }: { worker: Wo
                                 }
                                 isLoading = false
                         }
-        }
-        const updates = (fn: (u: SlotUpdate) => void) => {
-                doTick()
-                if (!hasExplicitRender) doRender()
                 slots.updates().forEach(fn)
         }
-        const render = () => {
-                hasExplicitRender = true
-                doRender()
-        }
-        return { cam, render, updates, updated: () => updated, overflow: mesh.overflow, pos: mesh.pos, scl: mesh.scl, aid: mesh.aid, count: mesh.count, pick, map: store.map }
+        return { cam, updates, updated: () => updated, overflow: mesh.overflow, pos: mesh.pos, scl: mesh.scl, aid: mesh.aid, count: mesh.count, pick, map: store.map }
 }
 
 export default createVoxel
