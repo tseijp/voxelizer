@@ -1,13 +1,13 @@
 import { createSlots } from './slot'
 import { createStore } from './store'
 import { createCamera } from './camera'
-import type { CameraConfig } from './camera'
 import { createMesh } from './mesh'
 import { culling, localOf, offOf, posOf, scoped, regionId, defaults } from './utils'
-import type { VoxelConfig } from './utils'
+import type { CameraConfig } from './camera'
 import type { Debug } from './debug'
 import type { Region } from './region'
 import type { SlotUpdate } from './slot'
+import type { VoxelConfig } from './utils'
 
 const RANGE = 8
 
@@ -65,14 +65,14 @@ const createVis = (mvp: number[], pos: number[], store: any, c: VoxelConfig, deb
         return { vis, regions: () => regions }
 }
 
-export const createVoxel = ({ worker, camera: cc, debug, onReady, ...opts }: { worker: Worker; camera?: CameraConfig; debug?: Debug; onReady?: () => void } & Partial<VoxelConfig>) => {
+export const createVoxel = ({ worker, i, j, camera: cc, debug, onReady, ...opts }: { worker: Worker; i?: number; j?: number; camera?: CameraConfig; debug?: Debug; onReady?: () => void } & Partial<VoxelConfig>) => {
         const c = { ...defaults, ...opts }
         const { x0, x1, y0, y1 } = c
         const w = x1 - x0 + 1
         worker.postMessage({ config: { atlasUrl: c.atlasUrl, atlasExt: c.atlasExt } })
-        const cx = cc?.x ?? ((x1 - x0 + 1) * 256) / 2
-        const cz = cc?.z ?? ((y1 - y0 + 1) * 256) / 2
-        const cam = createCamera({ x: cx, z: cz, ...cc, wrap: w * 256 })
+        const cx = i !== undefined ? (i - x0 + 0.5) * 256 : cc?.x ?? (w * 256) / 2
+        const cz = j !== undefined ? (j - y0 + 0.5) * 256 : cc?.z ?? (w * 256) / 2
+        const cam = createCamera({ ...cc, x: cx, z: cz, wrap: w * 256 })
         const mesh = createMesh()
         const store = createStore(mesh, worker, c, debug)
         const slots = createSlots(c.slot)
@@ -119,7 +119,7 @@ export const createVoxel = ({ worker, camera: cc, debug, onReady, ...opts }: { w
                         }
                 slots.updates().forEach(fn)
         }
-        return { cam, updates, updated: () => updated, overflow: mesh.overflow, pos: mesh.pos, scl: mesh.scl, aid: mesh.aid, count: mesh.count, pick, map: store.map }
+        return { cam, center: [cx, cz] as [number, number], updates, updated: () => updated, overflow: mesh.overflow, pos: mesh.pos, scl: mesh.scl, aid: mesh.aid, count: mesh.count, pick, map: store.map }
 }
 
 export default createVoxel
