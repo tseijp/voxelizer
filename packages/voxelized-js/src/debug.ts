@@ -32,7 +32,7 @@ export const createDebug = () => {
         const cells = new Map<string, CellData>()
         let anchor: [number, number] = [0, 0]
         let dirty = false
-        let timeout: NodeJS.Timeout
+        let timeout: any
         const key = (i: number, j: number) => `${i}:${j}`
         const ensure = (i: number, j: number): CellData => {
                 const k = key(i, j)

@@ -1,31 +1,38 @@
-// export const SCOPE = { x0: 116358, x1: 116467, y0: 51619, y1: 51626 } // x full y center
-// export const SCOPE = { x0: 116413, x1: 116417, y0: 51621, y1: 51625 } // 25 region
-// export const SCOPE = { x0: 116415, x1: 116415, y0: 51623, y1: 51623 } // 1 region tokyo tower
-// export const SCOPE = { x0: 116399, x1: 116399, y0: 51623, y1: 51623 } // 1 region shibuya
+export interface VoxelConfig {
+        x0: number
+        x1: number
+        y0: number
+        y1: number
+        slot: number
+        prebuild: number
+        prefetch: number
+        prepurge: number
+        atlasExt: string
+        atlasUrl: string
+}
 
-export const SCOPE = { x0: 116326, x1: 116508, y0: 51545, y1: 51694 } // all region
+export const defaults: VoxelConfig = {
+        x0: 116326,
+        x1: 116508,
+        y0: 51545,
+        y1: 51694,
+        slot: 16,
+        prebuild: 4,
+        prefetch: 4,
+        prepurge: 64,
+        atlasExt: 'webp',
+        atlasUrl: 'https://r2.glre.dev/atlas/v1',
+}
 
-export const ROW = SCOPE.x1 - SCOPE.x0 + 1 // 96 region = 96×16×16 voxel [m]
-export const SLOT = 16
-export const REGION = 256
-export const ATLAS = REGION * Math.sqrt(REGION) | 0
-export const TOTAL = REGION * REGION * REGION
-export const PREBUILD = 4
-export const PREFETCH = 4
-export const PREPURGE = 64
-export const ATLAS_EXT = 'webp'
-export const ATLAS_URL = `https://r2.glre.dev/atlas/v1`
-// export const ATLAS_URL = 'http://localhost:5500/logs/v7'
-
-export const offOf = (i = SCOPE.x0, j = SCOPE.y0) => [(i - SCOPE.x0) << 8, 0, (j - SCOPE.y0) << 8]
-export const local = (x: number, y: number, z: number) => (x | 0) + ((y | 0) + (z | 0) * REGION) * REGION
-export const posOf = (x = 0, z = 0) => [SCOPE.x0 + (x >> 8), SCOPE.y0 + (z >> 8)]
+export const offOf = (i: number, j: number, x0: number, y0: number) => [(i - x0) << 8, 0, (j - y0) << 8]
+export const local = (x: number, y: number, z: number) => (x | 0) + ((y | 0) + (z | 0) * 256) * 256
+export const posOf = (x: number, z: number, x0: number, y0: number) => [x0 + (x >> 8), y0 + (z >> 8)]
 export const range = (n = 0) => [...Array(n).keys()]
-export const regionId = (i = 0, j = 0) => i + ROW * j
+export const regionId = (i: number, j: number, w: number) => i + w * j
 export const culling = (VP = M.create(), rx = 0, ry = 0, rz = 0) => visSphere(VP as number[], rx + 128, ry + 128, rz + 128, Math.sqrt(256 * 256 * 3) * 0.5)
 
-export const localOf = (wx: number, wy: number, wz: number, ri: number, rj: number): [number, number, number] => {
-        const [ox, , oz] = offOf(ri, rj)
+export const localOf = (wx: number, wy: number, wz: number, ri: number, rj: number, x0: number, y0: number): [number, number, number] => {
+        const [ox, , oz] = offOf(ri, rj, x0, y0)
         return [wx - ox, wy, wz - oz]
 }
 
@@ -33,7 +40,7 @@ export const loadBitmap = async (url = '', signal?: AbortSignal) => {
         const res = await fetch(url, { signal, mode: 'cors' }) // @MEMO DO NOT SET: `cache: 'reload'`
         const blob = await res.blob()
         if (blob.size <= 0) throw new Error('empty-atlas')
-        return await createImageBitmap(blob, 0, 0, ATLAS, ATLAS)
+        return await createImageBitmap(blob, 0, 0, 4096, 4096)
 }
 
 export const loadContext = (bitmap: ImageBitmap) => {
@@ -49,17 +56,17 @@ export const inRegion = (x: number, y: number, z: number) => {
         if (x < 0) return false
         if (y < 0) return false
         if (z < 0) return false
-        if (x >= REGION) return false
-        if (y >= REGION) return false
-        if (z >= REGION) return false
+        if (x >= 256) return false
+        if (y >= 256) return false
+        if (z >= 256) return false
         return true
 }
 
-export const scoped = (i = 0, j = 0) => {
-        if (i < SCOPE.x0) return false
-        if (i > SCOPE.x1) return false
-        if (j < SCOPE.y0) return false
-        if (j > SCOPE.y1) return false
+export const scoped = (i: number, j: number, x0: number, x1: number, y0: number, y1: number) => {
+        if (i < x0) return false
+        if (i > x1) return false
+        if (j < y0) return false
+        if (j > y1) return false
         return true
 }
 
@@ -137,7 +144,7 @@ export const uv2m = (x: number, y: number) => {
 }
 
 export const atlas2occ = (data: Uint8ClampedArray, width: number, height: number) => {
-        const occ = new Uint8Array(TOTAL)
+        const occ = new Uint8Array(256 * 256 * 256)
         const pixels = width * height
         for (let i = 0; i < pixels; i++) {
                 // if ((data[i * 4] | data[i * 4 + 1] | data[i * 4 + 2]) === 0) continue

@@ -1,4 +1,4 @@
-import { loadBitmap, ATLAS_EXT, ATLAS_URL, REGION, atlas2occ, loadContext } from './utils'
+import { loadBitmap, atlas2occ, loadContext } from './utils'
 
 type GreedyMesh = (occ: Uint8Array, size: number) => { pos: Float32Array; scl: Float32Array; cnt: number }
 
@@ -14,6 +14,8 @@ const errorMessage = (err: unknown) => {
 }
 
 export const createWorkerHandler = (greedyMesh: GreedyMesh) => {
+        let atlasUrl = 'https://r2.glre.dev/atlas/v1'
+        let atlasExt = 'webp'
         const decodeAtlas = (bitmap: ImageBitmap, signal?: AbortSignal) => {
                 if (signal?.aborted) return { occ: undefined as unknown as Uint8Array, mesh: undefined as unknown as any }
                 const ctx = loadContext(bitmap)
@@ -22,11 +24,17 @@ export const createWorkerHandler = (greedyMesh: GreedyMesh) => {
                 if (signal?.aborted) return { occ: undefined as unknown as Uint8Array, mesh: undefined as unknown as any }
                 const occ = atlas2occ(data, bitmap.width, bitmap.height)
                 if (signal?.aborted) return { occ: undefined as unknown as Uint8Array, mesh: undefined as unknown as any }
-                const mesh = greedyMesh(occ, REGION)
+                const mesh = greedyMesh(occ, 256)
                 return { occ, mesh }
         }
         return (e: MessageEvent<WorkerMessage>) => {
                 const data = e.data
+                if ('config' in data) {
+                        const c = data.config as { atlasUrl?: string; atlasExt?: string }
+                        if (c.atlasUrl) atlasUrl = c.atlasUrl
+                        if (c.atlasExt) atlasExt = c.atlasExt
+                        return
+                }
                 if ('abort' in data) {
                         const c = controllers.get(data.id)
                         if (c) c.abort()
@@ -38,7 +46,7 @@ export const createWorkerHandler = (greedyMesh: GreedyMesh) => {
                 controllers.set(id, ctrl)
                 const done = () => controllers.delete(id)
                 const task = async () => {
-                        const bitmap = await loadBitmap(`${ATLAS_URL}/17_${i}_${j}.${ATLAS_EXT}`, ctrl.signal)
+                        const bitmap = await loadBitmap(`${atlasUrl}/17_${i}_${j}.${atlasExt}`, ctrl.signal)
                         if (ctrl.signal.aborted) return done()
                         if (mode === 'image') {
                                 post({ id, bitmap, mode }, [bitmap])
@@ -58,7 +66,7 @@ export const createWorkerHandler = (greedyMesh: GreedyMesh) => {
 
 export type WorkerMode = 'none' | 'image' | 'full' | 'error'
 
-export type WorkerMessage = { id: number; i: number; j: number; mode: 'image' | 'full' } | { id: number; abort: true }
+export type WorkerMessage = { id: number; i: number; j: number; mode: 'image' | 'full' } | { id: number; abort: true } | { config: { atlasUrl?: string; atlasExt?: string } }
 
 export type WorkerResponse = {
         id: number

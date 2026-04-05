@@ -3,7 +3,8 @@ import { createStore } from './store'
 import { createCamera } from './camera'
 import type { CameraConfig } from './camera'
 import { createMesh } from './mesh'
-import { culling, localOf, offOf, posOf, PREFETCH, SLOT, scoped, PREBUILD, regionId } from './utils'
+import { culling, localOf, offOf, posOf, scoped, regionId, defaults } from './utils'
+import type { VoxelConfig } from './utils'
 import type { Debug } from './debug'
 import type { Region } from './region'
 import type { SlotUpdate } from './slot'
@@ -14,7 +15,9 @@ const grid = (range: number, cb: (dx: number, dy: number) => void) => {
         for (let dx = range; dx >= -range; dx--) for (let dy = range; dy >= -range; dy--) cb(dx, dy)
 }
 
-const createVis = (mvp: number[], pos: number[], store: any, debug?: Debug) => {
+const createVis = (mvp: number[], pos: number[], store: any, c: VoxelConfig, debug?: Debug) => {
+        const { x0, x1, y0, y1, slot, prebuild, prefetch } = c
+        const w = x1 - x0 + 1
         let regions = new Set<Region>()
         let active = new Set<Region>()
         let keys = new Set<string>()
@@ -35,21 +38,21 @@ const createVis = (mvp: number[], pos: number[], store: any, debug?: Debug) => {
         }
         const vis = () => {
                 const all: { d: number; r: Region }[] = []
-                const [i, j] = posOf(pos[0], pos[2])
+                const [i, j] = posOf(pos[0], pos[2], x0, y0)
                 active = new Set()
                 keys = new Set()
                 grid(RANGE, (dx, dy) => {
                         const ri = i + dx,
                                 rj = j + dy
-                        if (!scoped(ri, rj)) return
+                        if (!scoped(ri, rj, x0, x1, y0, y1)) return
                         all.push({ d: Math.hypot(dx, dy), r: store.ensure(ri, rj) })
                 })
                 all.sort((a, b) => a.d - b.d)
-                const visible = all.filter(({ r }) => culling(mvp, ...offOf(r.i, r.j)))
-                regions = new Set(visible.slice(0, SLOT).map(({ r }) => r))
+                const visible = all.filter(({ r }) => culling(mvp, ...offOf(r.i, r.j, x0, y0)))
+                regions = new Set(visible.slice(0, slot).map(({ r }) => r))
                 regions.forEach((r) => mark(r, 'full', 3, 'visible'))
-                take(all, PREBUILD, 'full', 2, 'prebuild')
-                take(all, PREFETCH, 'image', 1, 'prefetch')
+                take(all, prebuild, 'full', 2, 'prebuild')
+                take(all, prefetch, 'image', 1, 'prefetch')
                 debug?.setAnchor(i, j)
                 debug?.prune(keys)
                 store.map.forEach((r: Region) => {
@@ -62,13 +65,17 @@ const createVis = (mvp: number[], pos: number[], store: any, debug?: Debug) => {
         return { vis, regions: () => regions }
 }
 
-export const createVoxel = ({ worker, camera: cc, debug, onReady }: { worker: Worker; camera?: CameraConfig; debug?: Debug; onReady?: () => void }) => {
-        const cam = createCamera(cc || {})
+export const createVoxel = ({ worker, camera: cc, debug, onReady, ...opts }: { worker: Worker; camera?: CameraConfig; debug?: Debug; onReady?: () => void } & Partial<VoxelConfig>) => {
+        const c = { ...defaults, ...opts }
+        const { x0, x1, y0, y1 } = c
+        const w = x1 - x0 + 1
+        worker.postMessage({ config: { atlasUrl: c.atlasUrl, atlasExt: c.atlasExt } })
+        const cam = createCamera({ ...cc, wrap: w * 256 })
         const mesh = createMesh()
-        const store = createStore(mesh, worker, debug)
-        const slots = createSlots(SLOT)
+        const store = createStore(mesh, worker, c, debug)
+        const slots = createSlots(c.slot)
         const { mvp, pos } = cam
-        const { vis, regions } = createVis(mvp, pos, store, debug)
+        const { vis, regions } = createVis(mvp, pos, store, c, debug)
         let isLoading = false
         let isFirst = true
         let isReady = false
@@ -77,11 +84,11 @@ export const createVoxel = ({ worker, camera: cc, debug, onReady }: { worker: Wo
         let ts = performance.now()
         let pt = ts
         const pick = (wx = 0, wy = 0, wz = 0) => {
-                const [ri, rj] = posOf(wx, wz)
-                if (!scoped(ri, rj)) return 0
-                const r = store.map.get(regionId(ri, rj))
+                const [ri, rj] = posOf(wx, wz, x0, y0)
+                if (!scoped(ri, rj, x0, x1, y0, y1)) return 0
+                const r = store.map.get(regionId(ri, rj, w))
                 if (!r) return 0
-                return r.pick(...localOf(wx, wy, wz, ri, rj))
+                return r.pick(...localOf(wx, wy, wz, ri, rj, x0, y0))
         }
         const updates = (fn: (u: SlotUpdate) => void) => {
                 pt = ts

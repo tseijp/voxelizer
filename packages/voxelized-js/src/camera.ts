@@ -1,4 +1,4 @@
-import { M, REGION, ROW, V } from './utils'
+import { M, V } from './utils'
 
 const _up = V.fromValues(0, 1, 0)
 const _fwd = V.fromValues(0, 0, -1)
@@ -92,7 +92,7 @@ const turnRate = (mode = 'scroll') => {
         return 0
 }
 
-export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mode = 'scroll' as string, autoScroll = false, x = 0, y = 0, z = 0, dash = 3, move = 12, jump = 12, ground = 0, size = [0.8, 1.8, 0.8], gravity = -50, sens = 1 / 250 }) => {
+export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mode = 'scroll' as string, autoScroll = false, x = 0, y = 0, z = 0, dash = 3, move = 12, jump = 12, ground = 0, size = [0.8, 1.8, 0.8], gravity = -50, sens = 1 / 250, wrap = 0 }) => {
         let dashing = 1
         let scroll = 0
         const collider = createCollider({ size, gravity, jump, ground, y })
@@ -133,8 +133,8 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
                         if (!autoScroll) return
                         scroll -= dt * move
                         pos[0] = x + scroll
-                        if (pos[0] < 0) pos[0] = ROW * REGION
-                        if (pos[0] > ROW * REGION) pos[0] = 0
+                        if (pos[0] < 0) pos[0] = wrap
+                        if (pos[0] > wrap) pos[0] = 0
                         lookAt(eye, pos, face)
                         return
                 }
