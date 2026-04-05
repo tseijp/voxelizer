@@ -70,7 +70,9 @@ export const createVoxel = ({ worker, camera: cc, debug, onReady, ...opts }: { w
         const { x0, x1, y0, y1 } = c
         const w = x1 - x0 + 1
         worker.postMessage({ config: { atlasUrl: c.atlasUrl, atlasExt: c.atlasExt } })
-        const cam = createCamera({ ...cc, wrap: w * 256 })
+        const cx = cc?.x ?? ((x1 - x0 + 1) * 256) / 2
+        const cz = cc?.z ?? ((y1 - y0 + 1) * 256) / 2
+        const cam = createCamera({ x: cx, z: cz, ...cc, wrap: w * 256 })
         const mesh = createMesh()
         const store = createStore(mesh, worker, c, debug)
         const slots = createSlots(c.slot)
