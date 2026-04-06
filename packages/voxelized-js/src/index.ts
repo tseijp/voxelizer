@@ -9,6 +9,9 @@ import type { Region } from './region'
 import type { SlotUpdate } from './slot'
 import type { VoxelConfig } from './utils'
 
+export * from './debug'
+export * from './utils'
+
 const RANGE = 8
 
 const grid = (range: number, cb: (dx: number, dy: number) => void) => {
@@ -123,5 +126,3 @@ export const createVoxel = ({ worker, i, j, camera: cc, debug, onReady, ...opts 
 }
 
 export default createVoxel
-
-export * from './utils'
