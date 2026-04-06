@@ -1,4 +1,4 @@
-import { inRegion, local, offOf, regionId, SCOPE } from './utils'
+import { inRegion, local, offOf, regionId } from './utils'
 import type { Debug } from './debug'
 import type { Queues, QueueTask } from './queue'
 import type { Mesh } from './mesh'
@@ -7,7 +7,7 @@ import type { WorkerMode, WorkerResult } from './worker'
 
 const MAX_RETRY = 3
 
-export const createRegion = (i = SCOPE.x0, j = SCOPE.y0, mesh: Mesh, queues: Queues, worker: WorkerBridge, debug?: Debug) => {
+export const createRegion = (i: number, j: number, mesh: Mesh, queues: Queues, worker: WorkerBridge, x0: number, y0: number, w: number, debug?: Debug) => {
         let isMeshed = false
         let isError = false
         let pending: Promise<WorkerResult | undefined> | undefined
@@ -146,8 +146,8 @@ export const createRegion = (i = SCOPE.x0, j = SCOPE.y0, mesh: Mesh, queues: Que
                 memoCache = m
         }
         const getError = () => isError
-        const [x, y, z] = offOf(i, j)
-        return { id: regionId(i, j), x, y, z, i, j, prefetch, image, build, pick, dispose, fetching, reset, tune, slot: -1, bitmap, occ, memo, setMemo, isError: getError }
+        const [x, y, z] = offOf(i, j, x0, y0)
+        return { id: regionId(i, j, w), x, y, z, i, j, prefetch, image, build, pick, dispose, fetching, reset, tune, slot: -1, bitmap, occ, memo, setMemo, isError: getError }
 }
 
 export type Region = ReturnType<typeof createRegion>
