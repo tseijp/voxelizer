@@ -1,9 +1,9 @@
-import { createGL } from '../../../../packages/core/src'
-import { box } from '../../../../packages/core/src/buffers'
-import { float, Fn, fragDepth, instance, mat4, Scope, texelFetch, texture2D, uint, uniform, uniformArray, uvec2, uvec3, varying, vec3, vec4 } from '../../../../packages/core/src/node'
+import { createGL } from 'glre/src'
+import { box } from 'glre/src/buffers'
+import { float, Fn, fragDepth, instance, mat4, Scope, texelFetch, texture2D, uint, uniform, uniformArray, uvec2, uvec3, varying, vec3, vec4 } from 'glre/src/node'
 import createVoxel from 'voxelized-js/src'
 import VoxelWorker from './worker?worker'
-import type { Float, UInt, UVec2, UVec3, Vec3 } from '../../../../packages/core/src/node'
+import type { Float, UInt, UVec2, UVec3, Vec3 } from 'glre/src/node'
 
 const iMVP = uniform<'mat4'>(mat4(), 'iMVP')
 const cube = box()
