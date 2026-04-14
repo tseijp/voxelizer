@@ -31,16 +31,15 @@ type Env = { my_d1_tmp: D1Database; my_r2_tmp: R2Bucket }
 type Conn = Connection<{ username: string }>
 
 export class PartyServer extends Server<Env> {
-        users = {} as Record<string, any>
+        users = {} as Record<string, string>
         static options = { hibernate: true }
         async onConnect(conn: Conn, c: ConnectionContext) {
                 const sub = c.request.headers.get('x-user-sub')!
                 const [user] = await getUserBySub(this.env.my_d1_tmp, sub)
                 conn.setState({ username: user.name! })
-                conn.send(JSON.stringify(this.users))
         }
         async onMessage(conn: Conn, message: string) {
-                this.users[conn.state!.username] = JSON.parse(message)
+                this.users[conn.state!.username] = message
                 this.broadcast(JSON.stringify(this.users))
         }
         onClose(conn: Conn) {
