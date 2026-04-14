@@ -9,6 +9,7 @@ import { Canvas, extend, useFrame, useThree } from '@react-three/fiber'
 import { KeyboardControls, PointerLockControls, useGLTF, useKeyboardControls } from '@react-three/drei'
 import { Voxel } from 'three-voxel/src'
 import VoxelWorker from './worker?worker'
+const { atan2, floor, hypot, min, random } = Math
 const MODELS = ['konaku', 'ryusui', 'senku']
 const URL = (k: string) => `https://r.tsei.jp/model/${k}.glb`
 const SPEED = 12
@@ -25,73 +26,61 @@ const keyMap = [
         { name: 'dash', keys: ['ShiftLeft', 'ShiftRight'] },
 ]
 type State = { username: string; x: number; y: number; z: number; yaw: number; model: number }
-const _dir = new THREE.Vector3()
-const _right = new THREE.Vector3()
-const _move = new THREE.Vector3()
-const _up = new THREE.Vector3(0, 1, 0)
 const blocked = (v: Voxel, wx: number, wy: number, wz: number) => {
         const [cx, cz] = v.center
-        const fx = Math.floor(wx + cx),
-                fz = Math.floor(wz + cz)
-        return [wy - 0.1, wy - EYE + 0.1].some((fy) => v.voxel.pick(fx, Math.floor(fy), fz))
+        return [wy - 0.1, wy - EYE + 0.1].some((fy) => v.voxel.pick(floor(wx + cx), floor(fy), floor(wz + cz)))
 }
-const walk = (v: Voxel, camera: THREE.Camera, step: number, keys: Record<string, boolean>) => {
-        camera.getWorldDirection(_dir).setY(0).normalize()
-        _right.crossVectors(_dir, _up).normalize()
-        _move.set(0, 0, 0)
-        if (keys.forward) _move.add(_dir)
-        if (keys.back) _move.sub(_dir)
-        if (keys.right) _move.add(_right)
-        if (keys.left) _move.sub(_right)
-        if (_move.lengthSq() === 0) return
-        _move.normalize().multiplyScalar(step * SPEED * (keys.dash ? DASH : 1))
-        const { x, y, z } = camera.position
-        if (!blocked(v, x + _move.x, y, z)) camera.position.x += _move.x
-        if (!blocked(v, camera.position.x, y, z + _move.z)) camera.position.z += _move.z
-}
-const fall = (v: Voxel, camera: THREE.Camera, step: number, jump: boolean, velY: number, stop: boolean) => {
-        if (jump && stop) velY = JUMP
-        velY += GRAVITY * step
-        const ny = camera.position.y + velY * step
-        const { x, z } = camera.position
-        stop = velY < 0 && blocked(v, x, ny, z)
-        if (stop || (velY > 0 && blocked(v, x, ny + EYE, z))) velY = 0
-        else camera.position.y = ny
-        if (camera.position.y < -100) {
-                camera.position.y = 100
-                velY = 0
-        }
-        return { velY, stop }
-}
-
-const createTick = (voxel: Voxel) => {
-        let velY = 0
-        let last = 0
+const createTick = (voxel: Voxel, username: string, send: (s: State) => void) => {
+        let vy = 0
+        let pt = 0
         let stop = false
-        const prev = [NaN, NaN, NaN, NaN]
-        const model = Math.floor(Math.random() * MODELS.length)
-        return (camera: THREE.Camera, dt: number, keys: Record<string, boolean>, username: string, send: (s: State) => void) => {
-                const step = Math.min(dt, 0.05)
-                walk(voxel, camera, step, keys)
-                ;({ velY, stop } = fall(voxel, camera, step, keys.jump, velY, stop))
+        const _up = new THREE.Vector3(0, 1, 0)
+        const _dir = new THREE.Vector3()
+        const _move = new THREE.Vector3()
+        const _right = new THREE.Vector3()
+        const prev = { x: 0, y: 0, z: 0, yaw: 0 }
+        const model = floor(random() * MODELS.length)
+        return (camera: THREE.Camera, dt: number, keys: Record<string, boolean>) => {
+                let { x, y, z } = camera.position
+                camera.getWorldDirection(_dir).setY(0).normalize()
+                _right.crossVectors(_dir, _up).normalize()
+                _move.set(0, 0, 0)
+                if (keys.forward) _move.add(_dir)
+                if (keys.right) _move.add(_right)
+                if (keys.back) _move.sub(_dir)
+                if (keys.left) _move.sub(_right)
+                if (_move.lengthSq() > 0) {
+                        _move.normalize().multiplyScalar(dt * SPEED * (keys.dash ? DASH : 1))
+                        if (!blocked(voxel, x + _move.x, y, z)) x += _move.x
+                        if (!blocked(voxel, x, y, z + _move.z)) z += _move.z
+                }
+                if (keys.jump && stop) vy = JUMP
+                vy += GRAVITY * dt
+                const _y = y + vy * dt
+                stop = vy < 0 && blocked(voxel, x, _y, z)
+                if (stop) vy = 0
+                else y = _y
+                if (y < -100) {
+                        y = 100
+                        vy = 0
+                }
+                Object.assign(camera.position, { x, y, z })
                 const now = performance.now()
-                if (now - last < 50) return
-                const yaw = Math.atan2(-_dir.z, _dir.x)
-                const { x, y, z } = camera.position
-                const [p0, p1, p2, p3] = prev
-                if ((x - p0) ** 2 + (y - p1) ** 2 + (z - p2) ** 2 + (yaw - p3) ** 2 < 1e-4) return
-                last = now
-                ;[prev[0], prev[1], prev[2], prev[3]] = [x, y, z, yaw]
+                if (now - pt < 50) return
+                pt = now
+                const yaw = atan2(-_dir.z, _dir.x)
+                if (hypot(x - prev.x, y - prev.y, z - prev.z, yaw - prev.yaw) < 1e-2) return
+                Object.assign(prev, { x, y, z, yaw })
                 send({ username, x, y: y - EYE, z, yaw, model })
         }
 }
 const Controller = ({ voxel, ready, send, username }: { voxel: Voxel; ready: { current: boolean }; send: (s: State) => void; username: string }) => {
         const { camera } = useThree()
         const [, get] = useKeyboardControls()
-        const [tick] = useState(() => createTick(voxel))
+        const tick = useMemo(() => createTick(voxel, username, send), [])
         useFrame((_, dt) => {
                 if (!ready.current) return
-                tick(camera, dt, get(), username, send)
+                tick(camera, min(dt, 0.05), get())
         })
         return null
 }
