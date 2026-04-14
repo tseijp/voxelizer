@@ -18,6 +18,7 @@ const authMiddleware = initAuthConfig((c) => ({
         secret: c.env.AUTH_SECRET,
         session: { strategy: 'jwt' },
 }))
+
 const myMiddleware = createMiddleware(async (c) => {
         const headers = new Headers(c.req.raw.headers)
         headers.set('x-user-sub', c.get('authUser')?.token?.sub!)

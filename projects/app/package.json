@@ -9,10 +9,14 @@
                 "cf-typegen": "wrangler types --env-interface CloudflareBindings"
         },
         "dependencies": {
+                "@react-three/fiber": "9.6.0",
+                "@react-three/drei": "9.6.0",
+                "@types/three": "0.183.1",
                 "glre": "^0.54.0",
                 "hono": "^4.11.10",
                 "react": "^19.2.4",
                 "react-dom": "^19.2.4",
+                "three": "0.183.2",
                 "swr": "2.4.0",
                 "tailwindcss": "^4.2.0",
                 "voxelized-js": "*"
