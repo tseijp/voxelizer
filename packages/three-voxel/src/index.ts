@@ -8,19 +8,48 @@ export * from './utils'
 
 const SLOTS = 16
 
+type VoxelInstance = ReturnType<typeof createVoxel>
+type CameraConfig = Parameters<typeof createVoxel>[0]['camera']
+type SlotUpdate = Parameters<Parameters<VoxelInstance['updates']>[0]>[0]
+
 interface VoxelParams {
         worker: Worker
         i?: number
         j?: number
-        camera?: any
+        camera?: CameraConfig
         controls?: 'three' | 'voxel'
         onReady?: () => void
 }
 
 const _vec = new THREE.Vector3()
+const _size = new THREE.Vector2()
 const _mat = new THREE.Matrix4()
 const _shift = new THREE.Matrix4()
 const _eye = new THREE.Vector3()
+
+type VoxelCam = VoxelInstance['cam']
+
+const driveFromThree = (cam: VoxelCam, camera: THREE.PerspectiveCamera, cx: number, cz: number) => {
+        _mat.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+        _shift.makeTranslation(-cx, 0, -cz)
+        _mat.multiply(_shift)
+        for (let k = 0; k < 16; k++) cam.mvp[k] = _mat.elements[k]
+        cam.pos[0] = camera.position.x + cx
+        cam.pos[1] = camera.position.y
+        cam.pos[2] = camera.position.z + cz
+}
+
+type BaseRenderer = Parameters<THREE.Object3D['onBeforeRender']>[0]
+
+const driveFromVoxel = (cam: VoxelCam, renderer: THREE.Renderer | BaseRenderer, camera: THREE.PerspectiveCamera, cx: number, cz: number) => {
+        const size = renderer.getSize(_size)
+        cam.update(size.x / size.y)
+        camera.position.set(cam.pos[0] - cx, cam.pos[1], cam.pos[2] - cz)
+        _eye.set(cam.eye[0] - cx, cam.eye[1], cam.eye[2] - cz)
+        camera.lookAt(_eye)
+        camera.updateMatrixWorld()
+        camera.updateProjectionMatrix()
+}
 
 const createAtlasTex = () => {
         const t = new THREE.DataArrayTexture(null, 4096, 4096, SLOTS)
@@ -33,7 +62,7 @@ const createAtlasTex = () => {
         return t
 }
 
-const createVoxelMaterial = (atlasTex: any, offsetNode: any) => {
+const createVoxelMaterial = (atlasTex: THREE.DataArrayTexture, offsetNode: VarNode<'vec3'>) => {
         const posAttr = attribute<'vec3'>('pos', 'vec3')
         const sclAttr = attribute<'vec3'>('scl', 'vec3')
         const aidAttr = attribute<'float'>('aid', 'float')
@@ -67,18 +96,18 @@ const createVoxelMaterial = (atlasTex: any, offsetNode: any) => {
 }
 
 export class Voxel extends THREE.InstancedMesh {
-        voxel: ReturnType<typeof createVoxel>
-        atlasNode: any
-        offsetNode: any
+        voxel: VoxelInstance
+        atlasNode: THREE.DataArrayTexture
+        offsetNode: VarNode<'vec3'>
         center: [number, number]
         controls: 'three' | 'voxel'
-        private _srcTex: any
+        private _srcTex: THREE.Texture
         constructor(params: VoxelParams) {
                 const atlasTex = createAtlasTex()
-                const offsetNode = uniformArray(
+                const offsetNode = uniformArray<'vec3'>(
                         Array.from({ length: SLOTS }, () => new THREE.Vector3()),
                         'vec3',
-                )
+                ) as unknown as VarNode<'vec3'>
                 const material = createVoxelMaterial(atlasTex, offsetNode)
                 const geometry = new THREE.BoxGeometry()
                 super(geometry, material, 1)
@@ -97,18 +126,19 @@ export class Voxel extends THREE.InstancedMesh {
                 geometry.setAttribute('scl', new THREE.InstancedBufferAttribute(v.scl(), 3))
                 geometry.setAttribute('aid', new THREE.InstancedBufferAttribute(v.aid(), 1))
         }
-        onBeforeRender(renderer: any, _scene: any, camera: any) {
+        onBeforeRender(renderer: THREE.Renderer | BaseRenderer, _scene: THREE.Scene, camera: THREE.Camera) {
                 const v = this.voxel
                 const cx = this.center[0]
                 const cz = this.center[1]
-                if (this.controls === 'three') this._driveFromThree(camera, cx, cz)
-                else this._driveFromVoxel(renderer, camera, cx, cz)
-                const offArr = this.offsetNode.array
-                v.updates(({ at, atlas: atl, offset }: any) => {
-                        offArr[at].set(offset[0] - cx, offset[1], offset[2] - cz)
+                const persp = camera as THREE.PerspectiveCamera
+                if (this.controls === 'three') driveFromThree(v.cam, persp, cx, cz)
+                else driveFromVoxel(v.cam, renderer, persp, cx, cz)
+                const offNode = this.offsetNode as unknown as { array: THREE.Vector3[]; needsUpdate: boolean }
+                v.updates(({ at, atlas: atl, offset }: SlotUpdate) => {
+                        offNode.array[at].set(offset[0] - cx, offset[1], offset[2] - cz)
                         this._srcTex.image = atl
                         this._srcTex.needsUpdate = true
-                        this.offsetNode.needsUpdate = true
+                        offNode.needsUpdate = true
                         renderer.copyTextureToTexture(this._srcTex, this.atlasNode, null, _vec.set(0, 0, at))
                 })
                 if (!v.updated()) return
@@ -123,26 +153,6 @@ export class Voxel extends THREE.InstancedMesh {
                 geo.getAttribute('pos').needsUpdate = true
                 geo.getAttribute('scl').needsUpdate = true
                 geo.getAttribute('aid').needsUpdate = true
-        }
-        private _driveFromThree(camera: any, cx: number, cz: number) {
-                const v = this.voxel
-                _mat.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
-                _shift.makeTranslation(-cx, 0, -cz)
-                _mat.multiply(_shift)
-                for (let k = 0; k < 16; k++) v.cam.mvp[k] = _mat.elements[k]
-                v.cam.pos[0] = camera.position.x + cx
-                v.cam.pos[1] = camera.position.y
-                v.cam.pos[2] = camera.position.z + cz
-        }
-        private _driveFromVoxel(renderer: any, camera: any, cx: number, cz: number) {
-                const v = this.voxel
-                const size = renderer.getSize(_vec)
-                v.cam.update(size.x / size.y)
-                camera.position.set(v.cam.pos[0] - cx, v.cam.pos[1], v.cam.pos[2] - cz)
-                _eye.set(v.cam.eye[0] - cx, v.cam.eye[1], v.cam.eye[2] - cz)
-                camera.lookAt(_eye)
-                camera.updateMatrixWorld()
-                camera.updateProjectionMatrix()
         }
 }
 

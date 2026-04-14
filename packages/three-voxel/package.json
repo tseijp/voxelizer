@@ -64,6 +64,10 @@
                 "packages.json",
                 "README.md"
         ],
+        "dependencies": {
+                "voxelized-js": "0.14.1",
+                "voxelized-rs": "0.2.0"
+        },
         "devDependencies": {
                 "@types/three": "*",
                 "three": "*"
