@@ -18,8 +18,7 @@
                 "pub": "npm run all && npx changeset publish"
         },
         "devDependencies": {
-                "@changesets/cli": "*",
-                "tsup": "*"
+                "tsup": "8.5.1"
         },
         "workspaces": [
                 "packages/**/*",
