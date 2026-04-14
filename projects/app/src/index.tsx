@@ -18,6 +18,7 @@ const authMiddleware = initAuthConfig((c) => ({
         secret: c.env.AUTH_SECRET,
         session: { strategy: 'jwt' },
 }))
+
 const myMiddleware = createMiddleware(async (c) => {
         const headers = new Headers(c.req.raw.headers)
         headers.set('x-user-sub', c.get('authUser')?.token?.sub!)
@@ -58,5 +59,6 @@ export default new Hono<{ Bindings: Env }>()
                 const { token } = c.get('authUser')
                 if (!token || !token.sub) return c.json(null, 401)
                 const [user] = await getUserBySub(c.env.my_d1_tmp, token.sub)
+                if (!user) return c.json(null, 401)
                 return c.json({ username: user.name || null })
         })

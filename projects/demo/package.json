@@ -14,12 +14,12 @@
                 "glre": "0.54.0"
         },
         "devDependencies": {
-                "typescript": "*",
-                "vite": "7",
-                "vite-plugin-wasm": "3.5.0",
+                "typescript": "6.0.2",
+                "vite": "8.0.8",
+                "vite-plugin-wasm": "3.6.0",
                 "vite-plugin-top-level-await": "1.6.0",
                 "voxelized-js": "*",
                 "voxelized-rs": "*",
-                "wrangler": "^4.17.0"
+                "wrangler": "4.82.2"
         }
 }
