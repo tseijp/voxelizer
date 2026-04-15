@@ -3,7 +3,7 @@ import { attribute, float, Fn, int, ivec3, normalLocal, positionGeometry, positi
 import createVoxel from 'voxelized-js/src'
 import { atlas } from './utils'
 import type { VarNode } from 'three/webgpu'
-
+import type { Debug } from 'voxelized-js/src'
 export * from './utils'
 
 const SLOTS = 16
@@ -16,6 +16,7 @@ interface VoxelParams {
         worker: Worker
         i?: number
         j?: number
+        debug?: Debug
         camera?: CameraConfig
         controls?: 'three' | 'voxel'
         onReady?: () => void
@@ -106,7 +107,7 @@ export class Voxel extends THREE.InstancedMesh {
                 const atlasTex = createAtlasTex()
                 const offsetNode = uniformArray<'vec3'>(
                         Array.from({ length: SLOTS }, () => new THREE.Vector3()),
-                        'vec3',
+                        'vec3'
                 ) as unknown as VarNode<'vec3'>
                 const material = createVoxelMaterial(atlasTex, offsetNode)
                 const geometry = new THREE.BoxGeometry()

@@ -40,7 +40,7 @@ export const defaultConfig = (override: Options, options: Options) => {
                         clean: !options.watch,
                         minify: !options.watch,
                         target: 'es2020',
-                        external: ['@skyway-sdk/room', 'react', 'react-dom', 'react-native', 'solid-js', 'vue', '@tsei/ctrl', '@tsei/r3f-ctrl'],
+                        external: ['react', 'react-dom', 'react-native', 'solid-js', 'vue', 'three', '@types/three'],
                         moduleResolution: 'NodeNext',
                 }
         })
