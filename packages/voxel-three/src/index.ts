@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu'
 import { attribute, float, Fn, int, ivec3, normalLocal, positionGeometry, positionLocal, textureLoad, uniformArray, varying, vec3, vec4 } from 'three/tsl'
 import createVoxel from 'voxelized-js/src'
 import { atlas } from './utils'
-import type { Camera, DataArrayTexture, Object3D, Renderer, Scene, Texture, UniformArrayNode, VarNode, Vector3 } from 'three/webgpu'
+import type { Camera, CanvasTexture, DataArrayTexture, Object3D, Renderer, Scene, UniformArrayNode, VarNode, Vector3 } from 'three/webgpu'
 
 export * from './utils'
 
@@ -36,17 +36,6 @@ const driveFromThree = (cam: Cam, camera: Camera, cx: number, cz: number) => {
         cam.pos[0] = camera.position.x + cx
         cam.pos[1] = camera.position.y
         cam.pos[2] = camera.position.z + cz
-}
-
-const createAtlasTex = (slot = 16) => {
-        const t = new THREE.DataArrayTexture(null, 4096, 4096, slot)
-        t.minFilter = t.magFilter = THREE.NearestFilter
-        t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping
-        t.generateMipmaps = false
-        t.needsUpdate = true
-        t.source.dataReady = false
-        t.colorSpace = THREE.SRGBColorSpace
-        return t
 }
 
 const createVec3 = () => new THREE.Vector3()
@@ -84,38 +73,70 @@ const createMaterial = (atlasTex: DataArrayTexture, offsetNode: UniformArrayNode
         return mat
 }
 
+const createDstTexture = (slot = 16) => {
+        const t = new THREE.DataArrayTexture(null, 4096, 4096, slot)
+        t.wrapS = THREE.ClampToEdgeWrapping
+        t.wrapT = THREE.ClampToEdgeWrapping
+        t.magFilter = THREE.NearestFilter
+        t.minFilter = THREE.NearestFilter
+        t.colorSpace = THREE.SRGBColorSpace
+        t.needsUpdate = true
+        t.generateMipmaps = false
+        t.source.dataReady = false
+        return t
+}
+
+const createSrcTexture = (el: HTMLCanvasElement) => {
+        const t = new THREE.CanvasTexture(el)
+        t.magFilter = THREE.NearestFilter
+        t.minFilter = THREE.NearestFilter
+        t.flipY = false
+        t.generateMipmaps = false
+        return t
+}
+
+const createCanvas = () => {
+        const el = document.createElement('canvas')
+        el.width = 4096
+        el.height = 4096
+        return el
+}
+
 export class Voxel extends THREE.InstancedMesh {
         voxel: Res
         offsetNode: UniformArrayNode<'vec3'>
         dstTexture: DataArrayTexture
-        private _texture: Texture
+        private _context: CanvasRenderingContext2D
+        private _texture: CanvasTexture
         private _isThree: boolean
         constructor(params: Req & { controls?: 'three' | 'voxel' }) {
                 const { slot = 16, controls } = params
                 const offsetNode = uniformArray<'vec3'>(Array.from({ length: slot }, createVec3), 'vec3')
-                const dstTexture = createAtlasTex(slot)
+                const dstTexture = createDstTexture(slot)
                 super(createGeometry(), createMaterial(dstTexture, offsetNode), 1)
+                const canvas = createCanvas()
+                this._context = canvas.getContext('2d')!
+                this._texture = createSrcTexture(canvas)
                 this.offsetNode = offsetNode
                 this.dstTexture = dstTexture
                 this.frustumCulled = false
                 this.voxel = createVoxel(params)
-                this._texture = new THREE.Texture()
-                this._texture.flipY = this._texture.generateMipmaps = false
                 this._isThree = controls !== 'voxel'
                 this._setAttribute()
         }
         onBeforeRender(renderer: Renderer | BaseRenderer, _scene: Scene, camera: Camera) {
-                const { dstTexture, offsetNode, voxel, _isThree, _texture } = this
-                const { center, cam, updates, updated, count, overflow } = voxel
+                const { dstTexture, offsetNode, voxel, _context, _isThree, _texture } = this
+                const { cam, center, count, updated, updates, overflow } = voxel
                 const [cx, cz] = center
                 if (_isThree) driveFromThree(cam, camera, cx, cz)
                 else driveFromVoxel(cam, camera, cx, cz, renderer)
-                const _node = offsetNode as unknown as { array: Vector3[]; needsUpdate: boolean }
+                const _node = offsetNode as unknown as { array: Vector3[]; needsUpdate: boolean; srcTex: any }
                 const array = _node.array
                 updates(({ at, atlas, offset }) => {
                         array[at].set(offset[0] - cx, offset[1], offset[2] - cz)
-                        _texture.image = atlas
-                        _texture.needsUpdate = _node.needsUpdate = true
+                        _context.drawImage(atlas, 0, 0)
+                        _node.needsUpdate = true
+                        _texture.needsUpdate = true
                         renderer.copyTextureToTexture(_texture, dstTexture, null, _vec3.set(0, 0, at))
                 })
                 if (!updated()) return
