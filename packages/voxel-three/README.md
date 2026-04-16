@@ -13,7 +13,7 @@ scene.add(new Voxel({ worker: new Worker() }))
 
 ## Why voxel-three
 
-`voxelized-js` already handles the hard parts of rendering a planet-scale voxel world: web-mercator region streaming, atlas image fetching, greedy meshing, priority scheduling, and slot allocation. What it does not do is talk to Three.js. Every Three.js project that wanted to consume the engine ended up re-writing the same glue code, which had three problems:
+`voxelized-js` already handles the hard parts of rendering a city-scale voxel world: web-mercator region streaming, atlas image fetching, greedy meshing, priority scheduling, and slot allocation. What it does not do is talk to Three.js. Every Three.js project that wanted to consume the engine ended up re-writing the same glue code, which had three problems:
 
 Duplication. Every consumer had to allocate a 4096 × 4096 × 16 `DataArrayTexture`, build a TSL shader with Morton-curve UV lookups, call `voxel.updates(...)` each frame, upload atlas slots through `copyTextureToTexture`, refresh uniform arrays, and rebuild instanced buffer attributes when the mesh overflowed. Minor drift between copies was unavoidable.
 
@@ -30,8 +30,6 @@ Camera bridging. Some projects drive the engine from a Three camera (OrbitContro
 The default export is a class that extends `THREE.InstancedMesh`. Construction wires up every resource the voxel pipeline needs:
 
 A `DataArrayTexture` of size `4096 × 4096 × 16`, configured with `NearestFilter`, `ClampToEdgeWrapping`, no mipmaps, `SRGBColorSpace`, and exposed as `this.dstTexture`. A 16-element `uniformArray<'vec3'>` of slot offsets, exposed as `this.offsetNode`. A `MeshBasicNodeMaterial` whose `positionNode` evaluates `offset + pos + positionLocal * scl` and whose `colorNode` samples the atlas via a Morton-curve `atlas(ivec3)` TSL helper. A `BoxGeometry` with instanced `pos` (`vec3`), `scl` (`vec3`) and `aid` (`float`) attributes populated from the engine. A `voxelized-js` engine instance stored at `this.voxel`, plus its center coordinates at `this.center`.
-
-The whole render loop runs inside `onBeforeRender`, which is Three.js's standard per-object hook. No `useFrame`, no manual `voxel.updates()` call, and no external texture upload — the class handles it all while Three walks the scene graph.
 
 ### `atlas(ivec3)`, `xyz2m(ivec3)`, `m2uv(int)` — shared TSL helpers
 

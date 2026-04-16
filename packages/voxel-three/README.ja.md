@@ -31,8 +31,6 @@ scene.add(new Voxel({ worker: new Worker() }))
 
 `NearestFilter`、`ClampToEdgeWrapping`、mipmap 無効、`SRGBColorSpace` で構成された `4096 × 4096 × 16` の `DataArrayTexture`。これは `this.dstTexture` として公開される。スロットごとのオフセットを保持する 16 要素の `uniformArray<'vec3'>`。これは `this.offsetNode` として公開される。`positionNode` が `offset + pos + positionLocal * scl` を返し、`colorNode` が Morton 曲線の `atlas(ivec3)` TSL ヘルパーを経由してアトラスをサンプリングする `MeshBasicNodeMaterial`。`pos`（`vec3`）、`scl`（`vec3`）、`aid`（`float`）の各 instanced attribute がエンジンから供給される `BoxGeometry`。そして `this.voxel` に格納された `voxelized-js` エンジン本体と、`this.center` に格納されたその中心座標。
 
-描画ループ全体は `onBeforeRender` の中で動く。これは Three.js が各オブジェクトに対して標準で呼び出すフック。`useFrame` も `voxel.updates()` の手動呼び出しも、外部からのテクスチャアップロードも不要で、Three がシーングラフを辿る過程でクラスがすべてを処理する。
-
 ### `atlas(ivec3)`、`xyz2m(ivec3)`、`m2uv(int)` — 共有 TSL ヘルパー
 
 パッケージは、3D ボクセル座標を 2D アトラス UV に変換する Morton 曲線の TSL ヘルパーも公開している。これはコア側のシェーダが使っているビットインタリーブ処理と同じもので、任意の TSL フラグメントシェーダや compute シェーダから再利用できる。これはアトラスをレイマーチングする compute シェーダ（たとえば地面の高さを探す処理）が、レンダリング側と同じスロットを正しく参照するために重要。
@@ -59,7 +57,7 @@ import { atlas, xyz2m, m2uv } from 'voxel-three'
 
 ## 使い方
 
-### 素の Three.js
+### Plain Three.js
 
 ```ts
 import * as THREE from 'three'
