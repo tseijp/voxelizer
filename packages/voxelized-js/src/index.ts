@@ -18,7 +18,7 @@ const grid = (range: number, cb: (dx: number, dy: number) => void) => {
         for (let dx = range; dx >= -range; dx--) for (let dy = range; dy >= -range; dy--) cb(dx, dy)
 }
 
-const createVis = (mvp: number[], pos: number[], store: any, c: VoxelConfig, debug?: Debug) => {
+const createVis = (mvp: number[], pos: number[], clip: () => 'webgl' | 'webgpu', store: any, c: VoxelConfig, debug?: Debug) => {
         const { x0, x1, y0, y1, slot, prebuild, prefetch } = c
         const w = x1 - x0 + 1
         let regions = new Set<Region>()
@@ -51,7 +51,7 @@ const createVis = (mvp: number[], pos: number[], store: any, c: VoxelConfig, deb
                         all.push({ d: Math.hypot(dx, dy), r: store.ensure(ri, rj) })
                 })
                 all.sort((a, b) => a.d - b.d)
-                const visible = all.filter(({ r }) => culling(mvp, ...offOf(r.i, r.j, x0, y0)))
+                const visible = all.filter(({ r }) => culling(mvp, ...offOf(r.i, r.j, x0, y0), clip()))
                 regions = new Set(visible.slice(0, slot).map(({ r }) => r))
                 regions.forEach((r) => mark(r, 'full', 3, 'visible'))
                 take(all, prebuild, 'full', 2, 'prebuild')
@@ -80,7 +80,7 @@ export const createVoxel = ({ worker, i, j, camera: cc, debug, onReady, ...opts 
         const store = createStore(mesh, worker, c, debug)
         const slots = createSlots(c.slot)
         const { mvp, pos } = cam
-        const { vis, regions } = createVis(mvp, pos, store, c, debug)
+        const { vis, regions } = createVis(mvp, pos, cam.clip, store, c, debug)
         let isLoading = false
         let isFirst = true
         let isReady = false

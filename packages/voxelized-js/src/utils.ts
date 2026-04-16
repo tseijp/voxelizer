@@ -24,12 +24,12 @@ export const defaults: VoxelConfig = {
         atlasUrl: 'https://r2.glre.dev/atlas/v1',
 }
 
-export const offOf = (i: number, j: number, x0: number, y0: number) => [(i - x0) << 8, 0, (j - y0) << 8]
+export const offOf = (i: number, j: number, x0: number, y0: number): [number, number, number] => [(i - x0) << 8, 0, (j - y0) << 8]
 export const local = (x: number, y: number, z: number) => (x | 0) + ((y | 0) + (z | 0) * 256) * 256
 export const posOf = (x: number, z: number, x0: number, y0: number) => [x0 + (x >> 8), y0 + (z >> 8)]
 export const range = (n = 0) => [...Array(n).keys()]
 export const regionId = (i: number, j: number, w: number) => i + w * j
-export const culling = (VP = M.create(), rx = 0, ry = 0, rz = 0) => visSphere(VP as number[], rx + 128, ry + 128, rz + 128, Math.sqrt(256 * 256 * 3) * 0.5)
+export const culling = (VP = M.create(), rx = 0, ry = 0, rz = 0, clip = 'webgpu') => visSphere(VP as number[], rx + 128, ry + 128, rz + 128, Math.sqrt(256 * 256 * 3) * 0.5, clip)
 
 export const localOf = (wx: number, wy: number, wz: number, ri: number, rj: number, x0: number, y0: number): [number, number, number] => {
         const [ox, , oz] = offOf(ri, rj, x0, y0)
@@ -176,13 +176,14 @@ export const createContext = () => {
         return el.getContext('2d', { willReadFrequently: true })
 }
 
-export const visSphere = (m = M.create(), cx = 0, cy = 0, cz = 0, r = 1) => {
+export const visSphere = (m = M.create(), cx = 0, cy = 0, cz = 0, r = 1, clip = 'webgpu') => {
         const t = (ax = 0, ay = 0, az = 0, aw = 0) => (ax * cx + ay * cy + az * cz + aw) / (Math.hypot(ax, ay, az) || 1) + r < 0
         if (t(m[3] + m[0], m[7] + m[4], m[11] + m[8], m[15] + m[12])) return false
         if (t(m[3] - m[0], m[7] - m[4], m[11] - m[8], m[15] - m[12])) return false
         if (t(m[3] + m[1], m[7] + m[5], m[11] + m[9], m[15] + m[13])) return false
         if (t(m[3] - m[1], m[7] - m[5], m[11] - m[9], m[15] - m[13])) return false
-        if (t(m[3] + m[2], m[7] + m[6], m[11] + m[10], m[15] + m[14])) return false
+        if (clip === 'webgpu' && t(m[2], m[6], m[10], m[14])) return false
+        if (clip !== 'webgpu' && t(m[3] + m[2], m[7] + m[6], m[11] + m[10], m[15] + m[14])) return false
         if (t(m[3] - m[2], m[7] - m[6], m[11] - m[10], m[15] - m[14])) return false
         return true
 }
@@ -366,14 +367,15 @@ export const M = {
                 out[11] = a03 * s + a23 * c
                 return out
         },
-        perspective: (o: number[], fovy: number, aspect: number, near: number, far: number) => {
+        perspective: (o: number[], fovy: number, aspect: number, near: number, far: number, clip = 'webgl') => {
                 const f = 1 / Math.tan(0.5 * fovy)
+                const z = clip === 'webgpu'
                 for (let i = 0; i < 16; i++) o[i] = 0
                 o[0] = f / aspect
                 o[5] = f
-                o[10] = (far + near) / (near - far)
+                o[10] = z ? far / (near - far) : (far + near) / (near - far)
                 o[11] = -1
-                o[14] = (2 * far * near) / (near - far)
+                o[14] = z ? (far * near) / (near - far) : (2 * far * near) / (near - far)
                 return o
         },
         lookAt: (o: number[], eye: number[], center: number[], up: number[]) => {

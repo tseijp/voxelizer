@@ -6,6 +6,9 @@ const _t0 = V.create()
 const _t1 = V.create()
 const _t2 = M.create()
 const _t3 = M.create()
+const FOV = 28
+const NEAR = 0.1
+const FAR = 4000
 
 const clampToFace = (pos = 0, half = 0.5, sign = 0, base = Math.floor(pos)) => (sign > 0 ? Math.min(pos, base + 1 - half) : Math.max(pos, base + half))
 
@@ -75,8 +78,8 @@ const moveDir = (out = V.create(), dir = V.create(), speed = 1, planar = false) 
         return out
 }
 
-const perspective = (mvp = M.create(), pos = V.create(), eye = V.create(), aspect = 1, offsetY = 0) => {
-        M.perspective(_t2, (28 * Math.PI) / 180, aspect, 0.1, 4000)
+const perspective = (mvp = M.create(), pos = V.create(), eye = V.create(), aspect = 1, offsetY = 0, fov = FOV, near = NEAR, far = FAR, clip = 'webgpu') => {
+        M.perspective(_t2, (fov * Math.PI) / 180, aspect, near, far, clip)
         V.copy(_t0, pos)
         V.copy(_t1, eye)
         _t0[1] += offsetY
@@ -92,7 +95,47 @@ const turnRate = (mode = 'scroll') => {
         return 0
 }
 
-export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mode = 'scroll' as string, autoScroll = false, x = 0, y = 0, z = 0, dash = 3, move = 12, jump = 12, ground = 0, size = [0.8, 1.8, 0.8], gravity = -50, sens = 1 / 250, wrap = 0 }) => {
+export const createCamera = ({
+        yaw = Math.PI * 0.5,
+        pitch = -Math.PI * 0.45,
+        mode = 'scroll' as string,
+        autoScroll = false,
+        x = 0,
+        y = 0,
+        z = 0,
+        dash = 3,
+        move = 12,
+        jump = 12,
+        ground = 0,
+        size = [0.8, 1.8, 0.8],
+        gravity = -50,
+        sens = 1 / 250,
+        wrap = 0,
+        fov = FOV,
+        near = NEAR,
+        far = FAR,
+        clip = 'webgpu',
+}: {
+        yaw?: number
+        pitch?: number
+        mode?: string
+        autoScroll?: boolean
+        x?: number
+        y?: number
+        z?: number
+        dash?: number
+        move?: number
+        jump?: number
+        ground?: number
+        size?: number[]
+        gravity?: number
+        sens?: number
+        wrap?: number
+        fov?: number
+        near?: number
+        far?: number
+        clip?: 'webgl' | 'webgpu'
+}) => {
         let dashing = 1
         let scroll = 0
         const collider = createCollider({ size, gravity, jump, ground, y })
@@ -151,10 +194,12 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
                 lookAt(eye, pos, face)
         }
         let _aspect = 16 / 9
-        const update = (a = _aspect) => perspective(mvp, pos, eye, (_aspect = a), size[1] * 0.5)
+        let sync = ((aspect = _aspect) => perspective(mvp, pos, eye, aspect, size[1] * 0.5, fov, near, far, clip)) as (aspect?: number) => void
+        const update = (a = _aspect) => void (sync((_aspect = a)))
+        const setSync = (fn?: (aspect?: number) => void) => void (sync = fn ?? ((aspect = _aspect) => perspective(mvp, pos, eye, aspect, size[1] * 0.5, fov, near, far, clip)))
         faceDir(face, yaw, pitch)
         lookAt(eye, pos, face)
-        return { pos, eye, mvp, reset, tick, turn, shift, space, asdw, update, mode: (x = 'scroll') => (mode = x), yaw: () => yaw, pitch: () => pitch }
+        return { pos, eye, mvp, reset, tick, turn, shift, space, asdw, update, sync: setSync, eyeY: () => size[1] * 0.5, fov: () => fov, near: () => near, far: () => far, clip: () => clip, mode: (x = 'scroll') => (mode = x), yaw: () => yaw, pitch: () => pitch }
 }
 
 export type CameraConfig = Parameters<typeof createCamera>[0]

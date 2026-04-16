@@ -17,7 +17,9 @@ const aid = instance<'float'>(float(), 'aid')
 const vCenter = varying<'vec3'>(vec3(), 'vCenter')
 const vDiffuse = varying<'float'>(float(), 'vDiffuse')
 const vAid = varying<'float'>(float(), 'vAid')
-const vLogW = varying<'float'>(float(), 'vLogW')
+const vClipW = varying<'float'>(float(), 'vClipW')
+const CAMERA_NEAR = 0.1
+const CAMERA_FAR = 4000
 const xyz2m = Fn(([xyz]: [UVec3]): UInt => {
         const p = xyz.toVar()
         p.bitOrAssign(p.shiftLeft(uvec3(uint(16))))
@@ -43,7 +45,7 @@ const m2uv = Fn(([morton]: [UInt]): UVec2 => {
         p.bitAndAssign(uvec2(uint(0x0000ffff)))
         return p
 })
-const FC = float(2.0).div(float(4001.0).log2()).constant()
+const FC = float(CAMERA_FAR / CAMERA_NEAR).log2().constant()
 const pick = Fn(([id, uvPix]: [Float, UVec2]) => {
         return texelFetch(iAtlas.element(id.toInt()), uvPix.toIVec2(), uint(0))
 })
@@ -59,14 +61,14 @@ const vert = Scope(() => {
         vCenter.assign(center)
         vDiffuse.assign(diffuse(normal))
         vAid.assign(aid)
-        vLogW.assign(float(1.0).add(position.w))
+        vClipW.assign(position.w)
         return position
 })
 const frag = Scope(() => {
         const p = vCenter.toUVec3()
         const uv = m2uv(xyz2m(p)).toVar('uv')
         const rgb = pick(vAid, uv).rgb.mul(vDiffuse).toVar('rgb')
-        fragDepth.assign(vLogW.log2().mul(FC).mul(0.5))
+        fragDepth.assign(vClipW.div(CAMERA_NEAR).log2().div(FC))
         return vec4(rgb, 1)
 })
 const worker = new VoxelWorker()
