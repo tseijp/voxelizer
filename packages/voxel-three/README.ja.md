@@ -1,4 +1,4 @@
-# three-voxel
+# voxel-three
 
 [`voxelized-js`](https://www.npmjs.com/package/voxelized-js) を Three.js に橋渡しするバインディング。ストリーミングで読み込まれる巨大なボクセルワールドを、単一の `THREE.InstancedMesh` のサブクラスとして扱えるようにする。素の Three.js シーンに追加することも、`@react-three/fiber` で `extend` してリアクティブな `<voxel />` JSX 要素として利用することも可能。
 

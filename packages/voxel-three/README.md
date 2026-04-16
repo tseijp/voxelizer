@@ -1,4 +1,4 @@
-# three-voxel
+# voxel-three
 
 A Three.js binding for [`voxelized-js`](https://www.npmjs.com/package/voxelized-js) that turns a large, streamed voxel world into a single `THREE.InstancedMesh` subclass. Drop it into a plain Three.js scene, or extend it with `@react-three/fiber` and use it as a reactive `<voxel />` JSX element.
 
