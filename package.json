@@ -10,6 +10,7 @@
                 "build": "cd projects/demo && npm run build",
                 "deploy": "cd projects/demo && npm run deploy",
                 "preview": "cd projects/demo && npm run preview",
+                "voxel-three": "cd packages/voxel-three && npx tsup",
                 "voxelized-js": "cd packages/voxelized-js && npx tsup",
                 "voxelized-rs": "cd packages/voxelized-rs && wasm-pack build --target bundler",
                 "voxelizer-js": "cd packages/voxelizer-js && npx tsup",
