@@ -4,16 +4,16 @@
 
 ```ts
 import * as THREE from 'three'
-import Voxel from 'three-voxel'
+import Voxel from 'voxel-three'
 import Worker from './worker?worker'
 
 const scene = new THREE.Scene()
 scene.add(new Voxel({ worker: new Worker() }))
 ```
 
-## なぜ three-voxel か
+## なぜ voxel-three か
 
-`voxelized-js` はすでに、惑星規模のボクセルワールドを描画するための難所を引き受けている。Web メルカトルに基づくリージョンのストリーミング、アトラス画像のフェッチ、グリーディメッシュ化、優先度スケジューリング、スロット割り当てなど。いっぽうで、そのエンジンを Three.js に接続する部分は提供されていない。結果として、`voxelized-js` を利用する Three.js プロジェクトはどれも同じグルーコードを書き直すことになり、以下の 3 つの問題が発生していた。
+`voxelized-js` はすでに、都市規模のボクセルワールドを描画するための難所を引き受けている。Web メルカトルに基づくリージョンのストリーミング、アトラス画像のフェッチ、グリーディメッシュ化、優先度スケジューリング、スロット割り当てなど。いっぽうで、そのエンジンを Three.js に接続する部分は提供されていない。結果として、`voxelized-js` を利用する Three.js プロジェクトはどれも同じグルーコードを書き直すことになり、以下の 3 つの問題が発生していた。
 
 重複。各プロジェクトが `4096 × 4096 × 16` の `DataArrayTexture` を確保し、Morton 曲線で UV を求める TSL シェーダを組み立て、毎フレーム `voxel.updates(...)` を呼び、`copyTextureToTexture` でアトラススロットをアップロードし、ユニフォーム配列を更新し、メッシュがオーバーフローしたときに instanced buffer attribute を作り直していた。コピー間の微妙な差異は避けがたかった。
 
@@ -21,7 +21,7 @@ scene.add(new Voxel({ worker: new Worker() }))
 
 カメラの橋渡し。あるプロジェクトでは Three のカメラ（`OrbitControls`、r3f のカメラ、ゲームパッド入力など）からエンジンを駆動し、別のプロジェクトではエンジン側の `scroll` / `creative` / `survive` モードが主導権を握ってその状態を Three に書き戻していた。双方向ともに手書きで、プロジェクトごとに挙動が微妙に違っていた。
 
-`three-voxel` は、これらすべてを単一のクラスと 2 つの小さなヘルパー関数に集約する。そして `voxelized-js` の内部には一切触れずに、ワールドを `[0, 0, 0]` に再センタリングする。
+`voxel-three` は、これらすべてを単一のクラスと 2 つの小さなヘルパー関数に集約する。そして `voxelized-js` の内部には一切触れずに、ワールドを `[0, 0, 0]` に再センタリングする。
 
 ## パッケージが提供するもの
 
@@ -29,7 +29,7 @@ scene.add(new Voxel({ worker: new Worker() }))
 
 デフォルトエクスポートは `THREE.InstancedMesh` を継承したクラス。コンストラクタで、ボクセルパイプラインに必要なリソースをすべて配線する。
 
-`NearestFilter`、`ClampToEdgeWrapping`、mipmap 無効、`SRGBColorSpace` で構成された `4096 × 4096 × 16` の `DataArrayTexture`。これは `this.atlasNode` として公開される。スロットごとのオフセットを保持する 16 要素の `uniformArray<'vec3'>`。これは `this.offsetNode` として公開される。`positionNode` が `offset + pos + positionLocal * scl` を返し、`colorNode` が Morton 曲線の `atlas(ivec3)` TSL ヘルパーを経由してアトラスをサンプリングする `MeshBasicNodeMaterial`。`pos`（`vec3`）、`scl`（`vec3`）、`aid`（`float`）の各 instanced attribute がエンジンから供給される `BoxGeometry`。そして `this.voxel` に格納された `voxelized-js` エンジン本体と、`this.center` に格納されたその中心座標。
+`NearestFilter`、`ClampToEdgeWrapping`、mipmap 無効、`SRGBColorSpace` で構成された `4096 × 4096 × 16` の `DataArrayTexture`。これは `this.dstTexture` として公開される。スロットごとのオフセットを保持する 16 要素の `uniformArray<'vec3'>`。これは `this.offsetNode` として公開される。`positionNode` が `offset + pos + positionLocal * scl` を返し、`colorNode` が Morton 曲線の `atlas(ivec3)` TSL ヘルパーを経由してアトラスをサンプリングする `MeshBasicNodeMaterial`。`pos`（`vec3`）、`scl`（`vec3`）、`aid`（`float`）の各 instanced attribute がエンジンから供給される `BoxGeometry`。そして `this.voxel` に格納された `voxelized-js` エンジン本体と、`this.center` に格納されたその中心座標。
 
 描画ループ全体は `onBeforeRender` の中で動く。これは Three.js が各オブジェクトに対して標準で呼び出すフック。`useFrame` も `voxel.updates()` の手動呼び出しも、外部からのテクスチャアップロードも不要で、Three がシーングラフを辿る過程でクラスがすべてを処理する。
 
@@ -38,12 +38,12 @@ scene.add(new Voxel({ worker: new Worker() }))
 パッケージは、3D ボクセル座標を 2D アトラス UV に変換する Morton 曲線の TSL ヘルパーも公開している。これはコア側のシェーダが使っているビットインタリーブ処理と同じもので、任意の TSL フラグメントシェーダや compute シェーダから再利用できる。これはアトラスをレイマーチングする compute シェーダ（たとえば地面の高さを探す処理）が、レンダリング側と同じスロットを正しく参照するために重要。
 
 ```ts
-import { atlas, xyz2m, m2uv } from 'three-voxel'
+import { atlas, xyz2m, m2uv } from 'voxel-three'
 ```
 
 ## 原点を `[0, 0, 0]` にする仕組み
 
-`voxelized-js` のエンジン本体は、リージョンの検索やフラスタムカリングに必要なため、内部では依然として絶対メルカトル座標で動く。`three-voxel` はその部分を変更しない。変更するのは `offsetNode` に書き込むユニフォームだけで、`voxel.updates(...)` が返す生の `offset` ではなく `offset - center` を書き込む。TSL の `positionNode` が同じユニフォーム配列を読むため、描画結果のワールドはローカル原点にアンカーされる。
+`voxelized-js` のエンジン本体は、リージョンの検索やフラスタムカリングに必要なため、内部では依然として絶対メルカトル座標で動く。`voxel-three` はその部分を変更しない。変更するのは `offsetNode` に書き込むユニフォームだけで、`voxel.updates(...)` が返す生の `offset` ではなく `offset - center` を書き込む。TSL の `positionNode` が同じユニフォーム配列を読むため、描画結果のワールドはローカル原点にアンカーされる。
 
 ここから 2 つの利点が派生する。1 つめは `this.position` がライブラリ側で触られないこと。利用者は `@react-three/fiber` からリアクティブに駆動できる。`<voxel position={[0, 1, 0]} rotation-z={Math.PI} />` がそのまま動くのは、r3f のレコンサイラが任意の `THREE.Object3D` への書き込み方を既に知っているため。2 つめはネットワークペイロードが小さくなること。マルチプレイヤーのデモでは `{ x + 22912, y + 800, z + 20096 }` ではなく、ローカル座標空間上の `{ x, y, z }` を送るだけで済む。
 
@@ -63,7 +63,7 @@ import { atlas, xyz2m, m2uv } from 'three-voxel'
 
 ```ts
 import * as THREE from 'three'
-import Voxel from 'three-voxel'
+import Voxel from 'voxel-three'
 import Worker from './worker?worker'
 
 const scene = new THREE.Scene()
@@ -81,7 +81,7 @@ scene.add(new Voxel({ worker: new Worker() }))
 ### React Three Fiber
 
 ```tsx
-import { Voxel } from 'three-voxel'
+import { Voxel } from 'voxel-three'
 import { Canvas, extend } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import Worker from './worker?worker'
@@ -100,16 +100,16 @@ const App = () => (
 
 ### アトラスを読む compute シェーダ
 
-`this.atlasNode` と `this.offsetNode` はそのまま TSL ノードなので、ユーザ定義の compute シェーダから直接参照できる。以下の例は、ワールド座標における地面の高さを求めるため、アトラスのスロットを上から下へ走査している。
+`this.dstTexture` と `this.offsetNode` はそのまま TSL ノードなので、ユーザ定義の compute シェーダから直接参照できる。以下の例は、ワールド座標における地面の高さを求めるため、アトラスのスロットを上から下へ走査している。
 
 <!-- prettier-ignore -->
 ```ts
 import { Fn, textureLoad, ivec3, int, If, Loop, Break } from 'three/tsl'
-import { atlas } from 'three-voxel'
+import { atlas } from 'voxel-three'
 
 const findGround = (voxel) =>
         Fn(([wx, wz]) => {
-                const iAtlas = voxel.atlasNode
+                const iAtlas = voxel.dstTexture
                 const iOffset = voxel.offsetNode
                 // ... iOffset を走査して一致するスロットを探す
                 // ... そのうえで y を Loop し、textureLoad(iAtlas, atlas(ivec3(lx, y, lz)), int(0)) を呼ぶ
@@ -136,13 +136,11 @@ new Voxel({
 
 ## 公開フィールドとメソッド
 
-`voxel` は `voxelized-js` のエンジン本体を保持する。`voxel.cam.turn(...)`、`voxel.pick(x, y, z)`、`voxel.map` など、コアライブラリとまったく同じ API がそのまま使える。`atlasNode` はマテリアルがサンプリングする `DataArrayTexture` を保持する。`offsetNode` は `-center` で事前にシフト済みのスロットオフセットを持つ `uniformArray<'vec3'>` を保持する。`center` は絶対メルカトル空間における元の `[cx, cz]` 中心値を保持しており、絶対座標が依然として必要なユーザ側コード（たとえばピンのジオコーディング）はこの値を加算し直すことで得られる。
+`voxel` は `voxelized-js` のエンジン本体を保持する。`voxel.cam.turn(...)`、`voxel.pick(x, y, z)`、`voxel.map` など、コアライブラリとまったく同じ API がそのまま使える。`dstTexture` はマテリアルがサンプリングする `DataArrayTexture` を保持する。`offsetNode` は `-center` で事前にシフト済みのスロットオフセットを持つ `uniformArray<'vec3'>` を保持する。`center` は絶対メルカトル空間における元の `[cx, cz]` 中心値を保持しており、絶対座標が依然として必要なユーザ側コード（たとえばピンのジオコーディング）はこの値を加算し直すことで得られる。
 
 ## 互換性と設計メモ
 
-`voxelized-js` 本体には一切手を入れていない。リージョンカリング、スロット管理、ワーカブリッジ、優先度スケジューリング、デバッグフックは、コアパッケージのドキュメント通りに動き続ける。`three-voxel` は厳密に公開 API の上に立っているだけなので、エンジンを手書きで駆動し続けたいプロジェクトは今までどおり利用できる。
-
-デフォルトエクスポートと名前付きエクスポート `Voxel` は同一のクラスを指し、`import Voxel from 'three-voxel'` と `import { Voxel } from 'three-voxel'` の双方で動く。`./src` サブパスエクスポートは、モノレポ内から tsup ビルドを経由せずソースを直接 import したい利用者向けで、`voxelized-js` と同じ規約に揃えている。
+`voxelized-js` 本体には一切手を入れていない。リージョンカリング、スロット管理、ワーカブリッジ、優先度スケジューリング、デバッグフックは、コアパッケージのドキュメント通りに動き続ける。`voxel-three` は厳密に公開 API の上に立っているだけなので、エンジンを手書きで駆動し続けたいプロジェクトは今までどおり利用できる。
 
 ## 動作要件
 

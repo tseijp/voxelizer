@@ -7,7 +7,7 @@ import { usePartySocket } from 'partysocket/react'
 import { useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import useSWRImmutable from 'swr/immutable'
-import Voxel from 'three-voxel/src'
+import Voxel from 'voxel-three/src'
 import * as THREE from 'three/webgpu'
 import type PartySocket from 'partysocket'
 

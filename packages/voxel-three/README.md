@@ -4,14 +4,14 @@ A Three.js binding for [`voxelized-js`](https://www.npmjs.com/package/voxelized-
 
 ```ts
 import * as THREE from 'three'
-import Voxel from 'three-voxel'
+import Voxel from 'voxel-three'
 import Worker from './worker?worker'
 
 const scene = new THREE.Scene()
 scene.add(new Voxel({ worker: new Worker() }))
 ```
 
-## Why three-voxel
+## Why voxel-three
 
 `voxelized-js` already handles the hard parts of rendering a planet-scale voxel world: web-mercator region streaming, atlas image fetching, greedy meshing, priority scheduling, and slot allocation. What it does not do is talk to Three.js. Every Three.js project that wanted to consume the engine ended up re-writing the same glue code, which had three problems:
 
@@ -21,7 +21,7 @@ Coordinate bloat. `voxelized-js` anchors its world at the north-west corner of t
 
 Camera bridging. Some projects drive the engine from a Three camera (OrbitControls, r3f cameras, gamepad input). Others let the engine's own camera own the scroll / creative / survive modes and copy its state back into Three. Both directions were hand-rolled and subtly different across projects.
 
-`three-voxel` collapses all of the above into a single class and two tiny helper functions, then re-centers the world at `[0, 0, 0]` without touching `voxelized-js` internals.
+`voxel-three` collapses all of the above into a single class and two tiny helper functions, then re-centers the world at `[0, 0, 0]` without touching `voxelized-js` internals.
 
 ## What the package provides
 
@@ -29,7 +29,7 @@ Camera bridging. Some projects drive the engine from a Three camera (OrbitContro
 
 The default export is a class that extends `THREE.InstancedMesh`. Construction wires up every resource the voxel pipeline needs:
 
-A `DataArrayTexture` of size `4096 × 4096 × 16`, configured with `NearestFilter`, `ClampToEdgeWrapping`, no mipmaps, `SRGBColorSpace`, and exposed as `this.atlasNode`. A 16-element `uniformArray<'vec3'>` of slot offsets, exposed as `this.offsetNode`. A `MeshBasicNodeMaterial` whose `positionNode` evaluates `offset + pos + positionLocal * scl` and whose `colorNode` samples the atlas via a Morton-curve `atlas(ivec3)` TSL helper. A `BoxGeometry` with instanced `pos` (`vec3`), `scl` (`vec3`) and `aid` (`float`) attributes populated from the engine. A `voxelized-js` engine instance stored at `this.voxel`, plus its center coordinates at `this.center`.
+A `DataArrayTexture` of size `4096 × 4096 × 16`, configured with `NearestFilter`, `ClampToEdgeWrapping`, no mipmaps, `SRGBColorSpace`, and exposed as `this.dstTexture`. A 16-element `uniformArray<'vec3'>` of slot offsets, exposed as `this.offsetNode`. A `MeshBasicNodeMaterial` whose `positionNode` evaluates `offset + pos + positionLocal * scl` and whose `colorNode` samples the atlas via a Morton-curve `atlas(ivec3)` TSL helper. A `BoxGeometry` with instanced `pos` (`vec3`), `scl` (`vec3`) and `aid` (`float`) attributes populated from the engine. A `voxelized-js` engine instance stored at `this.voxel`, plus its center coordinates at `this.center`.
 
 The whole render loop runs inside `onBeforeRender`, which is Three.js's standard per-object hook. No `useFrame`, no manual `voxel.updates()` call, and no external texture upload — the class handles it all while Three walks the scene graph.
 
@@ -38,12 +38,12 @@ The whole render loop runs inside `onBeforeRender`, which is Three.js's standard
 The package also exports the Morton-curve TSL helpers that translate 3D voxel coordinates into 2D atlas UVs. They are the same bit-interleaving sequences the core shader uses, and they are re-usable from any custom TSL fragment or compute shader. This is important because compute shaders that ray-march the atlas (for example, to find a ground height) need to sample the exact same slots the rendering pipeline samples.
 
 ```ts
-import { atlas, xyz2m, m2uv } from 'three-voxel'
+import { atlas, xyz2m, m2uv } from 'voxel-three'
 ```
 
 ## Origin at `[0, 0, 0]`
 
-The `voxelized-js` engine still operates on absolute mercator tile-space coordinates internally, because that is what region lookup and frustum culling need. `three-voxel` does not change any of that. What it changes is the offset uniforms it writes into `offsetNode`: instead of passing the raw `offset` returned by `voxel.updates(...)`, it writes `offset - center`. Because the TSL `positionNode` reads from that same uniform array, the rendered world ends up anchored at the local origin.
+The `voxelized-js` engine still operates on absolute mercator tile-space coordinates internally, because that is what region lookup and frustum culling need. `voxel-three` does not change any of that. What it changes is the offset uniforms it writes into `offsetNode`: instead of passing the raw `offset` returned by `voxel.updates(...)`, it writes `offset - center`. Because the TSL `positionNode` reads from that same uniform array, the rendered world ends up anchored at the local origin.
 
 Two consequences follow. First, `this.position` is untouched by the library, so users are free to drive it reactively with `@react-three/fiber`: `<voxel position={[0, 1, 0]} rotation-z={Math.PI} />` just works, because r3f's reconciler already knows how to write into any `THREE.Object3D`. Second, network payloads shrink. A multiplayer demo only needs to ship `{ x, y, z }` values in the local coordinate space, not `{ x + 22912, y + 800, z + 20096 }`.
 
@@ -63,7 +63,7 @@ Because the translation is applied symmetrically on both sides, switching `contr
 
 ```ts
 import * as THREE from 'three'
-import Voxel from 'three-voxel'
+import Voxel from 'voxel-three'
 import Worker from './worker?worker'
 
 const scene = new THREE.Scene()
@@ -81,7 +81,7 @@ No hooks, no custom render callback, no manual texture upload. Add the mesh to t
 ### React Three Fiber
 
 ```tsx
-import { Voxel } from 'three-voxel'
+import { Voxel } from 'voxel-three'
 import { Canvas, extend } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import Worker from './worker?worker'
@@ -100,16 +100,16 @@ const App = () => (
 
 ### Compute shaders that read the atlas
 
-Because `this.atlasNode` and `this.offsetNode` are plain TSL nodes, user-authored compute shaders can reference them directly. This example finds the ground height at a world coordinate by walking the atlas slots from top to bottom:
+Because `this.dstTexture` and `this.offsetNode` are plain TSL nodes, user-authored compute shaders can reference them directly. This example finds the ground height at a world coordinate by walking the atlas slots from top to bottom:
 
 <!-- prettier-ignore -->
 ```ts
 import { Fn, textureLoad, ivec3, int, If, Loop, Break } from 'three/tsl'
-import { atlas } from 'three-voxel'
+import { atlas } from 'voxel-three'
 
 const findGround = (voxel) =>
         Fn(([wx, wz]) => {
-                const iAtlas = voxel.atlasNode
+                const iAtlas = voxel.dstTexture
                 const iOffset = voxel.offsetNode
                 // ... walk iOffset to find the matching slot
                 // ... then Loop over y and textureLoad(iAtlas, atlas(ivec3(lx, y, lz)), int(0))
@@ -136,13 +136,11 @@ Any additional keys are forwarded to `voxelized-js`'s `createVoxel` factory, so 
 
 ## Exposed fields and methods
 
-`voxel` holds the underlying `voxelized-js` engine. Call `voxel.cam.turn(...)`, `voxel.pick(x, y, z)`, read `voxel.map`, and so on, exactly as in the base library. `atlasNode` holds the `DataArrayTexture` that the material samples. `offsetNode` holds the `uniformArray<'vec3'>` of slot offsets, already pre-shifted by `-center`. `center` holds the original `[cx, cz]` center in absolute mercator space, so user code that still needs absolute coordinates (for example, to geocode a pin) can add it back.
+`voxel` holds the underlying `voxelized-js` engine. Call `voxel.cam.turn(...)`, `voxel.pick(x, y, z)`, read `voxel.map`, and so on, exactly as in the base library. `dstTexture` holds the `DataArrayTexture` that the material samples. `offsetNode` holds the `uniformArray<'vec3'>` of slot offsets, already pre-shifted by `-center`. `center` holds the original `[cx, cz]` center in absolute mercator space, so user code that still needs absolute coordinates (for example, to geocode a pin) can add it back.
 
 ## Compatibility and design notes
 
-`voxelized-js` itself is completely untouched: region culling, slot management, the worker bridge, priority scheduling, and the debug hooks all behave exactly as documented in the core package. `three-voxel` sits strictly above the public API, so any project that wants to keep driving the engine by hand can continue to do so.
-
-The default export and the named `Voxel` export are the same class, supporting both `import Voxel from 'three-voxel'` and `import { Voxel } from 'three-voxel'`. The `./src` subpath export is available for monorepo consumers that want to import directly from source without going through the tsup build, matching the convention used by `voxelized-js`.
+`voxelized-js` itself is completely untouched: region culling, slot management, the worker bridge, priority scheduling, and the debug hooks all behave exactly as documented in the core package. `voxel-three` sits strictly above the public API, so any project that wants to keep driving the engine by hand can continue to do so.
 
 ## Requirements
 
