@@ -7,7 +7,7 @@ import { usePartySocket } from 'partysocket/react'
 import { useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import useSWRImmutable from 'swr/immutable'
-import { Voxel } from 'three-voxel/src'
+import Voxel from 'three-voxel/src'
 import * as THREE from 'three/webgpu'
 import type PartySocket from 'partysocket'
 
@@ -28,7 +28,7 @@ const MAP = [
 ]
 
 const collide = (v: Voxel, wx: number, wy: number, wz: number) => {
-        return [wy - 0.1, wy - EYE + 0.1].some((fy) => v.voxel.pick(floor(wx + v.center[0]), floor(fy), floor(wz + v.center[1])))
+        return [wy - 0.1, wy - EYE + 0.1].some((fy) => v.voxel.pick(floor(wx + v.voxel.center[0]), floor(fy), floor(wz + v.voxel.center[1])))
 }
 
 const createTick = (voxel: Voxel, socket: PartySocket, username: string) => {
