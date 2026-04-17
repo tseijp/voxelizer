@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu'
 import { attribute, float, Fn, int, ivec3, normalLocal, positionGeometry, positionLocal, textureLoad, uniformArray, varying, vec3, vec4 } from 'three/tsl'
 import createVoxel from 'voxelized-js/src'
 import { atlas } from './utils'
-import type { Camera, DataArrayTexture, Object3D, Renderer, Scene, UniformArrayNode, Node, Vector3 } from 'three/webgpu'
+import type { Camera, DataArrayTexture, Object3D, Scene, UniformArrayNode, Node, Vector3 } from 'three/webgpu'
 
 export * from './utils'
 
@@ -10,14 +10,14 @@ type Req = Parameters<typeof createVoxel>[0]
 type Res = ReturnType<typeof createVoxel>
 type Cam = Res['cam']
 
-type BaseRenderer = Parameters<Object3D['onBeforeRender']>[0]
+type Renderer = Parameters<Object3D['onBeforeRender']>[0]
 
 const _vec2 = new THREE.Vector2()
 const _vec3 = new THREE.Vector3()
 const _mat4 = new THREE.Matrix4()
 const _shift = new THREE.Matrix4()
 
-const driveFromVoxel = (cam: Cam, camera: Camera, cx: number, cz: number, renderer: Renderer | BaseRenderer) => {
+const driveFromVoxel = (cam: Cam, camera: Camera, cx: number, cz: number, renderer: Renderer) => {
         const size = renderer.getSize(_vec2)
         cam.update(size.x / size.y)
         camera.position.set(cam.pos[0] - cx, cam.pos[1], cam.pos[2] - cz)
@@ -88,12 +88,28 @@ const createDstTexture = (slot = 16) => {
         return t
 }
 
+type WriteAtlas = (at: number, atlas: ImageBitmap) => void
+
+const createAtlasWriter = (renderer: Renderer, dstTexture: DataArrayTexture): WriteAtlas => {
+        renderer.initTexture(dstTexture)
+        const backend = (renderer as any).backend
+        const device = backend.device
+        const gpuTex = backend.get(dstTexture).texture
+        return (at, atlas) => device.queue.copyExternalImageToTexture({ source: atlas, flipY: false }, { texture: gpuTex, origin: { x: 0, y: 0, z: at }, colorSpace: 'srgb' }, { width: SIZE, height: SIZE, depthOrArrayLayers: 1 })
+}
+
+const writeOffset = (offsetNode: UniformArrayNode<'vec3'>, at: number, offset: [number, number, number], cx: number, cz: number) => {
+        const _node = offsetNode as unknown as { array: Vector3[]; needsUpdate: boolean }
+        _node.array[at].set(offset[0] - cx, offset[1], offset[2] - cz)
+        _node.needsUpdate = true
+}
+
 export class Voxel extends THREE.InstancedMesh {
         voxel: Res
         offsetNode: UniformArrayNode<'vec3'>
         dstTexture: DataArrayTexture
         private _isThree: boolean
-        private _inited: boolean
+        private _writeAtlas?: WriteAtlas
         constructor(params: Req & { controls?: 'three' | 'voxel' }) {
                 const { slot = 16, controls } = params
                 const offsetNode = uniformArray<'vec3'>(Array.from({ length: slot }, createVec3), 'vec3')
@@ -104,28 +120,19 @@ export class Voxel extends THREE.InstancedMesh {
                 this.frustumCulled = false
                 this.voxel = createVoxel(params)
                 this._isThree = controls !== 'voxel'
-                this._inited = false
                 this._setAttribute()
         }
-        onBeforeRender(renderer: Renderer | BaseRenderer, _scene: Scene, camera: Camera) {
+        onBeforeRender(renderer: Renderer, _scene: Scene, camera: Camera) {
                 const { dstTexture, offsetNode, voxel, _isThree } = this
                 const { cam, center, count, updated, updates, overflow } = voxel
                 const [cx, cz] = center
                 if (_isThree) driveFromThree(cam, camera, cx, cz)
                 else driveFromVoxel(cam, camera, cx, cz, renderer)
-                if (!this._inited) {
-                        renderer.initTexture(dstTexture)
-                        this._inited = true
-                }
-                const backend = (renderer as any).backend
-                const device = backend.device
-                const gpuTex = backend.get(dstTexture).texture
-                const _node = offsetNode as unknown as { array: Vector3[]; needsUpdate: boolean }
-                const array = _node.array
+                if (!this._writeAtlas) this._writeAtlas = createAtlasWriter(renderer, dstTexture)
+                const writeAtlas = this._writeAtlas
                 updates(({ at, atlas, offset }) => {
-                        array[at].set(offset[0] - cx, offset[1], offset[2] - cz)
-                        _node.needsUpdate = true
-                        device.queue.copyExternalImageToTexture({ source: atlas, flipY: false }, { texture: gpuTex, origin: { x: 0, y: 0, z: at }, colorSpace: 'srgb' }, { width: SIZE, height: SIZE, depthOrArrayLayers: 1 })
+                        writeOffset(offsetNode, at, offset, cx, cz)
+                        writeAtlas(at, atlas)
                 })
                 if (!updated()) return
                 if (overflow()) return this._setAttribute()
