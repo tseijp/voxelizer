@@ -366,8 +366,8 @@ export const M = {
                 out[11] = a03 * s + a23 * c
                 return out
         },
-        perspective: (o: number[], fovy: number, aspect: number, near: number, far: number) => {
-                const f = 1 / Math.tan(0.5 * fovy)
+        perspective: (o: number[], fov: number, aspect: number, near: number, far: number) => {
+                const f = 1 / Math.tan(0.5 * fov)
                 for (let i = 0; i < 16; i++) o[i] = 0
                 o[0] = f / aspect
                 o[5] = f

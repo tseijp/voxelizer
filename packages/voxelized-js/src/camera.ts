@@ -75,8 +75,8 @@ const moveDir = (out = V.create(), dir = V.create(), speed = 1, planar = false) 
         return out
 }
 
-const perspective = (mvp = M.create(), pos = V.create(), eye = V.create(), aspect = 1, offsetY = 0) => {
-        M.perspective(_t2, (28 * Math.PI) / 180, aspect, 0.1, 4000)
+const perspective = (mvp = M.create(), pos = V.create(), eye = V.create(), aspect = 1, offsetY = 0, near = 0.1, far = 4000, fov = 28) => {
+        M.perspective(_t2, (fov * Math.PI) / 180, aspect, near, far)
         V.copy(_t0, pos)
         V.copy(_t1, eye)
         _t0[1] += offsetY
@@ -92,7 +92,7 @@ const turnRate = (mode = 'scroll') => {
         return 0
 }
 
-export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mode = 'scroll' as string, autoScroll = false, x = 0, y = 0, z = 0, dash = 3, move = 12, jump = 12, ground = 0, size = [0.8, 1.8, 0.8], gravity = -50, sens = 1 / 250, wrap = 0 }) => {
+export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, near = 0.1, far = 4000, fov = 2, mode = 'scroll' as string, autoScroll = false, x = 0, y = 0, z = 0, dash = 3, move = 12, jump = 12, ground = 0, size = [0.8, 1.8, 0.8], gravity = -50, sens = 1 / 250, wrap = 0 }) => {
         let dashing = 1
         let scroll = 0
         const collider = createCollider({ size, gravity, jump, ground, y })
@@ -151,7 +151,7 @@ export const createCamera = ({ yaw = Math.PI * 0.5, pitch = -Math.PI * 0.45, mod
                 lookAt(eye, pos, face)
         }
         let _aspect = 16 / 9
-        const update = (a = _aspect) => perspective(mvp, pos, eye, (_aspect = a), size[1] * 0.5)
+        const update = (a = _aspect) => perspective(mvp, pos, eye, (_aspect = a), size[1] * 0.5, near, far, fov)
         faceDir(face, yaw, pitch)
         lookAt(eye, pos, face)
         return { pos, eye, mvp, reset, tick, turn, shift, space, asdw, update, mode: (x = 'scroll') => (mode = x), yaw: () => yaw, pitch: () => pitch }
