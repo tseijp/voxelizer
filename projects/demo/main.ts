@@ -6,6 +6,8 @@ import VoxelWorker from './worker?worker'
 import type { Float, UInt, UVec2, UVec3, Vec3 } from 'glre/src/node'
 
 const iMVP = uniform<'mat4'>(mat4(), 'iMVP')
+const iNear = uniform<'float'>(float(0), 'iNear')
+const iFar = uniform<'float'>(float(0), 'iFar')
 const cube = box()
 const vertex = cube.vertex('vertex')
 const normal = cube.normal('normal')
@@ -17,7 +19,7 @@ const aid = instance<'float'>(float(), 'aid')
 const vCenter = varying<'vec3'>(vec3(), 'vCenter')
 const vDiffuse = varying<'float'>(float(), 'vDiffuse')
 const vAid = varying<'float'>(float(), 'vAid')
-const vLogW = varying<'float'>(float(), 'vLogW')
+const vClipW = varying<'float'>(float(), 'vClipW')
 const xyz2m = Fn(([xyz]: [UVec3]): UInt => {
         const p = xyz.toVar()
         p.bitOrAssign(p.shiftLeft(uvec3(uint(16))))
@@ -43,7 +45,6 @@ const m2uv = Fn(([morton]: [UInt]): UVec2 => {
         p.bitAndAssign(uvec2(uint(0x0000ffff)))
         return p
 })
-const FC = float(2.0).div(float(4001.0).log2()).constant()
 const pick = Fn(([id, uvPix]: [Float, UVec2]) => {
         return texelFetch(iAtlas.element(id.toInt()), uvPix.toIVec2(), uint(0))
 })
@@ -59,18 +60,18 @@ const vert = Scope(() => {
         vCenter.assign(center)
         vDiffuse.assign(diffuse(normal))
         vAid.assign(aid)
-        vLogW.assign(float(1.0).add(position.w))
+        vClipW.assign(position.w)
         return position
 })
 const frag = Scope(() => {
         const p = vCenter.toUVec3()
         const uv = m2uv(xyz2m(p)).toVar('uv')
         const rgb = pick(vAid, uv).rgb.mul(vDiffuse).toVar('rgb')
-        fragDepth.assign(vLogW.log2().mul(FC).mul(0.5))
+        fragDepth.assign(vClipW.div(iNear).log2().div(iFar.div(iNear).log2()))
         return vec4(rgb, 1)
 })
 const worker = new VoxelWorker()
-const voxel = createVoxel({ worker, camera: { x: 22912, y: 800, z: 20096, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: 'scroll', autoScroll: true } })
+const voxel = createVoxel({ worker, camera: { x: 22912, y: 400, z: 20096, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.01, mode: 'scroll', autoScroll: true } })
 
 const gl = createGL({
         precision: 'highp',
@@ -88,6 +89,8 @@ const gl = createGL({
                         gl._texture('iAtlas', atlas, at)
                 })
                 gl._uniform?.('iMVP', [...voxel.cam.mvp])
+                gl._uniform?.('iNear', voxel.cam.near())
+                gl._uniform?.('iFar', voxel.cam.far())
                 gl._instance('pos', voxel.pos())
                 gl._instance('scl', voxel.scl())
                 gl._instance('aid', voxel.aid())

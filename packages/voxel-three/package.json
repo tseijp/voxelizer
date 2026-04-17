@@ -65,8 +65,8 @@
                 "README.md"
         ],
         "dependencies": {
-                "voxelized-js": "0.14.1",
-                "voxelized-rs": "0.2.0"
+                "voxelized-js": "*",
+                "voxelized-rs": "*"
         },
         "devDependencies": {
                 "@types/three": "*",
