@@ -75,15 +75,15 @@ const moveDir = (out = V.create(), dir = V.create(), speed = 1, planar = false) 
         return out
 }
 
-// const perspective = (mvp = M.create(), pos = V.create(), eye = V.create(), aspect = 1, near = 0.1, far = 4000, fov = 28) => {
-//         M.perspective(_t2, (fov * Math.PI) / 180, aspect, near, far)
-//         V.copy(_t0, pos)
-//         V.copy(_t1, eye)
-//         _t0[1] += 0.9
-//         _t1[1] += 0.9
-//         M.lookAt(_t3, _t0, _t1, _up)
-//         M.multiply(mvp, _t2, _t3)
-// }
+const perspective = (mvp = M.create(), pos = V.create(), eye = V.create(), aspect = 1, near = 0.1, far = 4000, fov = 28) => {
+        M.perspective(_t2, (fov * Math.PI) / 180, aspect, near, far)
+        V.copy(_t0, pos)
+        V.copy(_t1, eye)
+        _t0[1] += 0.9
+        _t1[1] += 0.9
+        M.lookAt(_t3, _t0, _t1, _up)
+        M.multiply(mvp, _t2, _t3)
+}
 
 const perspective2 = (mvp = M.create(), pos = V.create(), eye = V.create(), aspect = 1, near = 0.1, far = 4000, fov = 28) => {
         const top = near * Math.tan(((fov * Math.PI) / 180) * 0.5)

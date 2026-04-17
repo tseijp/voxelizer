@@ -366,16 +366,16 @@ export const M = {
                 out[11] = a03 * s + a23 * c
                 return out
         },
-        // perspective: (o: number[], fov: number, aspect: number, near: number, far: number) => {
-        //         const f = 1 / Math.tan(0.5 * fov)
-        //         for (let i = 0; i < 16; i++) o[i] = 0
-        //         o[0] = f / aspect
-        //         o[5] = f
-        //         o[10] = (far + near) / (near - far)
-        //         o[11] = -1
-        //         o[14] = (2 * far * near) / (near - far)
-        //         return o
-        // },
+        perspective: (o: number[], fov: number, aspect: number, near: number, far: number) => {
+                const f = 1 / Math.tan(0.5 * fov)
+                for (let i = 0; i < 16; i++) o[i] = 0
+                o[0] = f / aspect
+                o[5] = f
+                o[10] = (far + near) / (near - far)
+                o[11] = -1
+                o[14] = (2 * far * near) / (near - far)
+                return o
+        },
         perspective2: (o: number[], left: number, right: number, top: number, bottom: number, near: number, far: number) => {
                 const x = (2 * near) / (right - left)
                 const y = (2 * near) / (top - bottom)

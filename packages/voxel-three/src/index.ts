@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu'
 import { attribute, float, Fn, int, ivec3, normalLocal, positionGeometry, positionLocal, textureLoad, uniformArray, varying, vec3, vec4 } from 'three/tsl'
-import createVoxel from 'voxelized-js/src'
+import createVoxel from '../../voxelized-js/src'
+// import createVoxel from 'voxelized-js/src'
 import { atlas } from './utils'
 import type { Camera, DataArrayTexture, Object3D, Scene, UniformArrayNode, Node, Vector3 } from 'three/webgpu'
 
