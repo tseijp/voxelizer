@@ -11,20 +11,20 @@
         "dependencies": {
                 "@react-three/fiber": "9.6.0",
                 "@react-three/drei": "10.7.7",
-                "@types/three": "0.183.1",
+                "@types/three": "0.184.0",
                 "glre": "0.54.0",
-                "hono": "4.12.12",
+                "hono": "4.12.14",
                 "react": "19.2.5",
                 "react-dom": "19.2.5",
-                "three": "0.183.2",
+                "three": "0.184.0",
                 "swr": "2.4.1",
                 "tailwindcss": "4.2.2",
                 "voxelized-js": "*"
         },
         "devDependencies": {
-                "@auth/core": "0.41.1",
-                "@auth/drizzle-adapter": "1.11.1",
-                "@cloudflare/vite-plugin": "1.32.2",
+                "@auth/core": "0.41.2",
+                "@auth/drizzle-adapter": "1.11.2",
+                "@cloudflare/vite-plugin": "1.32.3",
                 "@hono/auth-js": "1.1.1",
                 "@tailwindcss/vite": "4.2.2",
                 "@types/react": "19.2.14",
@@ -37,6 +37,6 @@
                 "vite": "8.0.8",
                 "vite-plugin-top-level-await": "1.6.0",
                 "vite-plugin-wasm": "3.6.0",
-                "wrangler": "4.82.2"
+                "wrangler": "4.83.0"
         }
 }
