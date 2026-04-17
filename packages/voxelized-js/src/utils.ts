@@ -366,14 +366,39 @@ export const M = {
                 out[11] = a03 * s + a23 * c
                 return out
         },
-        perspective: (o: number[], fov: number, aspect: number, near: number, far: number) => {
-                const f = 1 / Math.tan(0.5 * fov)
-                for (let i = 0; i < 16; i++) o[i] = 0
-                o[0] = f / aspect
-                o[5] = f
-                o[10] = (far + near) / (near - far)
+        // perspective: (o: number[], fov: number, aspect: number, near: number, far: number) => {
+        //         const f = 1 / Math.tan(0.5 * fov)
+        //         for (let i = 0; i < 16; i++) o[i] = 0
+        //         o[0] = f / aspect
+        //         o[5] = f
+        //         o[10] = (far + near) / (near - far)
+        //         o[11] = -1
+        //         o[14] = (2 * far * near) / (near - far)
+        //         return o
+        // },
+        perspective2: (o: number[], left: number, right: number, top: number, bottom: number, near: number, far: number) => {
+                const x = (2 * near) / (right - left)
+                const y = (2 * near) / (top - bottom)
+                const a = (right + left) / (right - left)
+                const b = (top + bottom) / (top - bottom)
+                const c = -far / (far - near)
+                const d = (-far * near) / (far - near)
+                o[0] = x
+                o[1] = 0
+                o[2] = 0
+                o[3] = 0
+                o[4] = 0
+                o[5] = y
+                o[6] = 0
+                o[7] = 0
+                o[8] = a
+                o[9] = b
+                o[10] = c
                 o[11] = -1
-                o[14] = (2 * far * near) / (near - far)
+                o[12] = 0
+                o[13] = 0
+                o[14] = d
+                o[15] = 0
                 return o
         },
         lookAt: (o: number[], eye: number[], center: number[], up: number[]) => {
