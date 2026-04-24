@@ -1,7 +1,7 @@
 import { Fn, int, ivec2 } from 'three/tsl'
-import type { VarNode } from 'three/webgpu'
+import type { Node } from 'three/webgpu'
 
-export const xyz2m = Fn(([xyz]: [VarNode<'ivec3'>]) => {
+export const xyz2m = Fn(([xyz]: [Node<'ivec3'>]) => {
         const x = xyz.x.toVar()
         const y = xyz.y.toVar()
         const z = xyz.z.toVar()
@@ -32,7 +32,7 @@ export const xyz2m = Fn(([xyz]: [VarNode<'ivec3'>]) => {
         return x.bitOr(y.shiftLeft(int(1))).bitOr(z.shiftLeft(int(2)))
 })
 
-export const m2uv = Fn(([morton]: [VarNode<'int'>]) => {
+export const m2uv = Fn(([morton]: [Node<'int'>]) => {
         const px = morton.toVar()
         const py = morton.shiftRight(int(1)).toVar()
         px.assign(px.bitAnd(int(0x55555555)))
@@ -56,6 +56,6 @@ export const m2uv = Fn(([morton]: [VarNode<'int'>]) => {
         return ivec2(px, py)
 })
 
-export const atlas = Fn(([p]: [VarNode<'ivec3'>]) => {
+export const atlas = Fn(([p]: [Node<'ivec3'>]) => {
         return m2uv(xyz2m(p))
 })
